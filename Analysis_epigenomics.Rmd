@@ -181,3 +181,15 @@ ENCODE data
 showHeatmap("data/Tim/encHistone/matrix_PVAL.txt", colnum=c(1, 2, 3), factor="none", cell=breast.e, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=1, toPlot="bar", fileName=NULL)
 ```
 
+Cell type-specific enrichment analysis
+===
+
+Results are in files 'cellSpecific_ENCODE.xlsx' and 'cellSpecific_Roadmap.xlsx'
+
+```{r}
+mtx <- load_gr_data(c("data/Tim/encTfbs/matrix_PVAL.txt", "data/Tim/encHistone/matrix_PVAL.txt", "data/Tim/encBroadHmm/matrix_PVAL.txt"))
+mtx.cellspecific(mtx, "results/cellSpecific_ENCODE.xlsx")
+mtx <- load_gr_data(c("data/Tim/broadPeak/matrix_PVAL.txt", "data/Tim/DNase_hotspotbroadall/matrix_PVAL.txt"))
+mtx.cellspecific(mtx, "results/cellSpecific_Roadmap.xlsx")
+```
+
