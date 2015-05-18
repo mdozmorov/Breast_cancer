@@ -1,0 +1,404 @@
+---
+title: "Untitled"
+author: "Mikhail G. Dozmorov"
+date: "April 18, 2015"
+output: html_document
+---
+
+```{r setup, echo=FALSE, message=FALSE}
+suppressMessages(source("../../../GenomeRunner/R.GenomeRunner/utils1.R"))
+# Set up the environment
+library(knitr) 
+opts_chunk$set(cache.path='cache/', fig.path='img/', cache=F, tidy=T, fig.keep='high', echo=F, dpi=100, warnings=F, message=F, comment=NA, warning=F, results='hide') #out.width=700, 
+options(replace.assign=TRUE)#, width=120)
+suppressMessages(library(pander))
+panderOptions('table.split.table', Inf)
+set.seed(1)
+```
+
+```{r}
+#' Enrichment analysis data import
+#' 
+#' A function to load enrichment analysis matrix(es) and remove non-informative epigenomic marks
+#'
+#' @param dname a string, or a character vector containing one or multiple paths to the 'matrix.txt' file(s). Note, header is shifted one tab left, as used by R standards. If multiple
+#' @param subset a string used to subset a list of genomic features. Default - none. Examples - "Tfbs", "Histone"
+#'
+#' @return a matrix of filtered data
+#' @export
+#' @examples
+#' mtx <- load_gr_data("data/ENCODE/")
+#' mtx <- load_gr_data(c("data/ENCODE_Tfbs/", "data/ENCODE_Histone/"), subset=c("Tfbs", "Histone"))
+##
+load_gr_data <- function(dname, subset="none") {
+  # mtx<-do.call("rbind", lapply(dname, function(fn) as.matrix(read.table(paste(fn, "matrix.txt", sep=""), sep="\t", header=T, row.names=1))))
+  mtx.list <- list()
+  for (d in dname) {
+    mtx.list <- c(mtx.list, list(as.matrix(read.table(d, sep="\t", header=T, row.names=1, stringsAsFactors=F, check.names=FALSE))))
+  }
+  # rbind matching column names
+  # https://stackoverflow.com/questions/16962576/how-can-i-rbind-vectors-matching-their-column-names
+  mtx <- do.call("rbind", lapply(mtx.list, function(x) x[, match(colnames(mtx.list[[1]]), colnames(x)) ]))
+  if (subset != "none") {
+    mtx <- mtx[grep(paste(subset, collapse="|"), rownames(mtx), ignore.case=T), ] # filter GF list
+  }
+  # Exploratory: check quantiles and remove diseaases showing no enrichments
+  # mtx.sumstat <- as.data.frame(apply(mtx, 2, quantile)) # Get quantiles
+  # mtx <- mtx[ , apply(mtx.sumstat, 2, function(x) sum(abs(x)) != 5)] # Remove those that have all "1" or "-1"
+  # Optional: filter unused genomic features
+  # mtx<-mtx[grep("snp", rownames(mtx), ignore.case=T, invert=T), ]
+  if (grepl("PVAL", d)) {
+    mtx<-mtx.transform(mtx) # -log10 transform p-values
+    # Optional: adjust columns for multiple testing. See utils.R for the function definition.
+    # mtx<-mtx.adjust(mtx) 
+    dim(mtx) # Check original dimensions
+    # Define minimum number of times a row/col should have values above the cutoffs
+    numofsig <- 1
+    cutoff <- -log10(0.1) # q-value significance cutoff
+    # What remains if we remove rows/cols with nothing significant
+    dim(mtx[apply(mtx, 1, function(x) sum(abs(x) > cutoff)) >= numofsig, ])
+            # apply(mtx, 2, function(x) sum(abs(x)>cutoff))>=numofsig])
+    # Trim the matrix
+    mtx<-mtx[apply(mtx, 1, function(x) sum(abs(x) > cutoff)) >= numofsig, ]
+            # apply(mtx, 2, function(x) sum(abs(x)>cutoff))>=numofsig]
+    # If there are columns with SD=0, add jitter to it
+    set.seed(1)
+    mtx[, apply(mtx, 2, sd) == 0] <- jitter(mtx[, apply(mtx, 2, sd) == 0], factor=0.1)
+  }
+  return(as.matrix(mtx))
+}
+
+blood.r <- c("E033", "E034", "E037", "E038", "E039", "E040", "E041", "E042", "E043", "E044", "E045", "E047", "E048", "E062", "E115", "E116", "E123", "E124", "E029", "E030", "E031", "E032", "E035", "E036", "E046", "E050", "E051") # Blood Roadmap
+blood.e <- c("Gm12878", "Cd20ro01778", "Cd20", "Cd20ro01794") # Blood Encode
+breast.r <- c("E119", "E027", "E028") # Breast Roadmap
+breast.e <- c("Mcf7", "Hmec", "T47d", "Mcf10aes") # Breast Encode
+```
+
+```{r eval=FALSE}
+mtx <- load_gr_data("data/Tim/broadPeak/matrix_PVAL.txt")
+hist(apply(mtx, 1, sd))
+mtx <- mtx[ order(apply(mtx, 1, sd), decreasing=TRUE), ]
+mtx.melt <- melt(mtx)
+colnames(mtx.melt) <- c("gf", "group", "pval")
+aov.out <- aov(gf ~ group, data=mtx.melt)
+
+```
+
+TFBSs from ENCODE
+===
+
+TAConly
+===
+
+Blood
+---
+```{r fig.height=3}
+showHeatmap("data/Tim/encTfbs/matrix_PVAL.txt", colnum=1, factor="none", cell=blood.e, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=1, toPlot="bar", fileName=NULL)
+```
+
+Breast
+---
+```{r fig.height=3}
+showHeatmap("data/Tim/encTfbs/matrix_PVAL.txt", colnum=1, factor="none", cell=breast.e, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=1, toPlot="bar", fileName=NULL)
+```
+
+TCHonly
+===
+
+Blood
+---
+```{r fig.height=3}
+showHeatmap("data/Tim/encTfbs/matrix_PVAL.txt", colnum=2, factor="none", cell=blood.e, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=1, toPlot="bar", fileName=NULL)
+```
+
+Breast
+---
+```{r fig.height=3}
+showHeatmap("data/Tim/encTfbs/matrix_PVAL.txt", colnum=2, factor="none", cell=breast.e, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=1, toPlot="bar", fileName=NULL)
+```
+
+TConly
+===
+
+Blood
+---
+```{r fig.height=3}
+showHeatmap("data/Tim/encTfbs/matrix_PVAL.txt", colnum=3, factor="none", cell=blood.e, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=1, toPlot="bar", fileName=NULL)
+```
+
+Breast
+---
+```{r fig.height=3}
+showHeatmap("data/Tim/encTfbs/matrix_PVAL.txt", colnum=3, factor="none", cell=breast.e, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=1, toPlot="bar", fileName=NULL)
+```
+
+Comparing the three
+===
+
+Blood
+---
+```{r fig.height=3}
+showHeatmap("data/Tim/encTfbs/matrix_PVAL.txt", colnum=c(1, 2, 3), factor="none", cell=blood.e, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=1, toPlot="bar", fileName=NULL)
+```
+
+Breast
+---
+```{r fig.height=3}
+showHeatmap("data/Tim/encTfbs/matrix_PVAL.txt", colnum=c(1, 2, 3), factor="none", cell=breast.e, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=1, toPlot="bar", fileName=NULL)
+```
+
+Common
+===
+
+Blood
+---
+```{r fig.height=3}
+showHeatmap("data/Tim/encTfbs/matrix_PVAL.txt", colnum=4, factor="none", cell=blood.e, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=1, toPlot="bar", fileName=NULL)
+```
+
+Breast
+---
+```{r fig.height=3}
+showHeatmap("data/Tim/encTfbs/matrix_PVAL.txt", colnum=4, factor="none", cell=breast.e, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=1, toPlot="bar", fileName=NULL)
+```
+
+
+
+Chromatin states from ENCODE
+===
+
+TAConly
+===
+
+Blood
+---
+```{r fig.height=3}
+showHeatmap("data/Tim/encBroadHmm/matrix_PVAL.txt", colnum=1, factor="none", cell=blood.e, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=1, toPlot="bar", fileName=NULL)
+```
+
+Breast
+---
+```{r fig.height=3}
+showHeatmap("data/Tim/encBroadHmm/matrix_PVAL.txt", colnum=1, factor="none", cell=breast.e, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=1, toPlot="bar", fileName=NULL)
+```
+
+TCHonly
+===
+
+Blood
+---
+```{r fig.height=3}
+showHeatmap("data/Tim/encBroadHmm/matrix_PVAL.txt", colnum=2, factor="none", cell=blood.e, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=1, toPlot="bar", fileName=NULL)
+```
+
+Breast
+---
+```{r fig.height=3}
+showHeatmap("data/Tim/encBroadHmm/matrix_PVAL.txt", colnum=2, factor="none", cell=breast.e, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=1, toPlot="bar", fileName=NULL)
+```
+
+TConly
+===
+
+Blood
+---
+```{r fig.height=3}
+showHeatmap("data/Tim/encBroadHmm/matrix_PVAL.txt", colnum=3, factor="none", cell=blood.e, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=1, toPlot="bar", fileName=NULL)
+```
+
+Breast
+---
+```{r fig.height=3}
+showHeatmap("data/Tim/encBroadHmm/matrix_PVAL.txt", colnum=3, factor="none", cell=breast.e, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=1, toPlot="bar", fileName=NULL)
+```
+
+Comparing the three
+===
+
+Blood
+---
+```{r fig.height=3}
+showHeatmap("data/Tim/encBroadHmm/matrix_PVAL.txt", colnum=c(1, 2, 3), factor="none", cell=blood.e, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=1, toPlot="bar", fileName=NULL)
+```
+
+Breast
+---
+```{r fig.height=3}
+showHeatmap("data/Tim/encBroadHmm/matrix_PVAL.txt", colnum=c(1, 2, 3), factor="none", cell=breast.e, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=1, toPlot="bar", fileName=NULL)
+```
+
+Common
+===
+
+Blood
+---
+```{r fig.height=3}
+showHeatmap("data/Tim/encBroadHmm/matrix_PVAL.txt", colnum=4, factor="none", cell=blood.e, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=1, toPlot="bar", fileName=NULL)
+```
+
+Breast
+---
+```{r fig.height=3}
+showHeatmap("data/Tim/encBroadHmm/matrix_PVAL.txt", colnum=4, factor="none", cell=breast.e, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=1, toPlot="bar", fileName=NULL)
+```
+
+Histone modifications from Roadmap
+===
+
+TAConly
+===
+
+Blood
+---
+```{r fig.height=5}
+showHeatmap("data/Tim/broadPeak/matrix_PVAL.txt", colnum=1, factor="none", cell=blood.r, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=5, toPlot="heat", fileName=NULL)
+```
+
+```{r fig.height=5}
+showHeatmap("data/Tim/broadPeak/matrix_OR.txt", colnum=c(1), factor="none", cell=blood.r, isLog10="OR", adjust="fdr", pval=1, numtofilt=5, toPlot="heat", fileName=NULL)
+```
+
+Breast
+---
+```{r fig.height=5}
+showHeatmap("data/Tim/broadPeak/matrix_PVAL.txt", colnum=1, factor="none", cell=breast.r, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=2, toPlot="heat", fileName=NULL)
+```
+
+TCHonly
+===
+
+Blood
+---
+```{r fig.height=5}
+showHeatmap("data/Tim/broadPeak/matrix_PVAL.txt", colnum=2, factor="none", cell=blood.r, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=4, toPlot="heat", fileName=NULL)
+```
+
+Breast
+---
+```{r fig.height=5}
+showHeatmap("data/Tim/broadPeak/matrix_PVAL.txt", colnum=2, factor="none", cell=breast.r, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=2, toPlot="heat", fileName=NULL)
+```
+
+TConly
+===
+
+Blood
+---
+```{r fig.height=5}
+showHeatmap("data/Tim/broadPeak/matrix_PVAL.txt", colnum=3, factor="none", cell=blood.r, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=5, toPlot="heat", fileName=NULL)
+```
+
+Breast
+---
+```{r fig.height=5}
+showHeatmap("data/Tim/broadPeak/matrix_PVAL.txt", colnum=3, factor="none", cell=breast.r, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=2, toPlot="heat", fileName=NULL)
+```
+
+Comparing the three
+===
+
+Blood
+---
+```{r fig.height=3}
+showHeatmap("data/Tim/broadPeak/matrix_PVAL.txt", colnum=c(1, 2, 3), factor="none", cell=blood.r, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=1, toPlot="bar", fileName=NULL)
+```
+
+Breast
+---
+```{r fig.height=3}
+showHeatmap("data/Tim/broadPeak/matrix_PVAL.txt", colnum=c(1, 2, 3), factor="none", cell=breast.r, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=1, toPlot="bar", fileName=NULL)
+```
+
+Common
+===
+
+Blood
+---
+```{r fig.height=5}
+showHeatmap("data/Tim/broadPeak/matrix_PVAL.txt", colnum=4, factor="none", cell=blood.r, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=5, toPlot="heat", fileName=NULL)
+```
+
+Breast
+---
+```{r fig.height=5}
+showHeatmap("data/Tim/broadPeak/matrix_PVAL.txt", colnum=4, factor="none", cell=breast.r, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=2, toPlot="heat", fileName=NULL)
+```
+
+Histone modifications from ENCODE
+===
+
+TAConly
+===
+
+Blood
+---
+```{r fig.height=5}
+showHeatmap("data/Tim/encHistone/matrix_PVAL.txt", colnum=1, factor="none", cell=blood.e, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=2, toPlot="heat", fileName=NULL)
+```
+
+Breast
+---
+```{r fig.height=5}
+showHeatmap("data/Tim/encHistone/matrix_PVAL.txt", colnum=1, factor="none", cell=breast.e, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=1, toPlot="heat", fileName=NULL)
+```
+
+TCHonly
+===
+
+Blood
+---
+```{r fig.height=3}
+showHeatmap("data/Tim/encHistone/matrix_PVAL.txt", colnum=2, factor="none", cell=blood.e, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=3, toPlot="bar", fileName=NULL)
+```
+
+Breast
+---
+```{r fig.height=3}
+showHeatmap("data/Tim/encHistone/matrix_PVAL.txt", colnum=2, factor="none", cell=breast.e, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=3, toPlot="bar", fileName=NULL)
+```
+
+TConly
+===
+
+Blood
+---
+```{r fig.height=3}
+showHeatmap("data/Tim/encHistone/matrix_PVAL.txt", colnum=3, factor="none", cell=blood.e, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=4, toPlot="bar", fileName=NULL)
+```
+
+Breast
+---
+```{r fig.height=3}
+showHeatmap("data/Tim/encHistone/matrix_PVAL.txt", colnum=3, factor="none", cell=breast.e, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=2, toPlot="bar", fileName=NULL)
+```
+
+Comparing the three
+===
+
+Blood
+---
+```{r fig.height=3}
+showHeatmap("data/Tim/encHistone/matrix_PVAL.txt", colnum=c(1, 2, 3), factor="none", cell=blood.e, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=1, toPlot="bar", fileName=NULL)
+```
+
+Breast
+---
+```{r fig.height=3}
+showHeatmap("data/Tim/encHistone/matrix_PVAL.txt", colnum=c(1, 2, 3), factor="none", cell=breast.e, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=1, toPlot="bar", fileName=NULL)
+```
+
+Common
+===
+
+Blood
+---
+```{r fig.height=3}
+showHeatmap("data/Tim/encHistone/matrix_PVAL.txt", colnum=4, factor="none", cell=blood.e, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=5, toPlot="bar", fileName=NULL)
+```
+
+Breast
+---
+```{r fig.height=3}
+showHeatmap("data/Tim/encHistone/matrix_PVAL.txt", colnum=4, factor="none", cell=breast.e, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=2, toPlot="bar", fileName=NULL)
+```
+
