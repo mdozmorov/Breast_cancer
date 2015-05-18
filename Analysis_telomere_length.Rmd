@@ -30,6 +30,8 @@ rownames.mtx.cast <- mtx.cast$name # Save names
 mtx.cast <- mtx.cast[, -1]
 mtx.cast <- sapply(mtx.cast, function(x) {class(x) <- "numeric"; x})
 rownames(mtx.cast) <- rownames.mtx.cast
+# Coordinates of all probes
+bed.all <- read.table("data/Tim/AllProbes.bed", sep="\t", stringsAsFactors = FALSE)
 ```
 
 Load annotation data ...
@@ -208,7 +210,7 @@ print("Expected by chance")
 ks.test(runif(length(start), arm.start, arm.end), "punif", arm.start, arm.end)
 ```
 
-No differentially methylated CpGs on chr22p.
+No differentially methylated CpGs on chr21p.
 
 Are TAC-specific cpgs show some location bias?
 ---
@@ -231,6 +233,17 @@ ks.test(runif(length(start), arm.start, arm.end), "punif", arm.start, arm.end)
 
 Yes, close to the beginning of the chromosome.
 
+If we account for the distribution of of all cpg sites from the chip on this chromosome arm (shown)
+
+```{r}
+# Comparing with location of all cpg sites.
+bed.selected <- bed.all[ bed.all$V1 == chr & bed.all$V2 > arm.start & bed.all$V2 < arm.end, ]
+hist(round(bed.selected$V2/1000), xlim=c(arm.start/1000, arm.end/1000))
+ks.test(start, bed.selected$V2)
+```
+
+we don't see anything significant.
+
 chr9q
 ---
 ```{r}
@@ -248,6 +261,17 @@ ks.test(runif(length(start), arm.start, arm.end), "punif", arm.start, arm.end)
 ```
 
 Yes, close to the end of the chromosome.
+
+If we account for the distribution of of all cpg sites from the chip on this chromosome arm (shown)
+
+```{r}
+# Comparing with location of all cpg sites.
+bed.selected <- bed.all[ bed.all$V1 == chr & bed.all$V2 > arm.start & bed.all$V2 < arm.end, ]
+hist(round(bed.selected$V2/1000), xlim=c(arm.start/1000, arm.end/1000))
+ks.test(start, bed.selected$V2)
+```
+
+we don't see anything significant.
 
 chr12q
 ---
@@ -267,6 +291,17 @@ ks.test(runif(length(start), arm.start, arm.end), "punif", arm.start, arm.end)
 
 Yes, close to the end of the chromosome.
 
+If we account for the distribution of of all cpg sites from the chip on this chromosome arm (shown)
+
+```{r}
+# Comparing with location of all cpg sites.
+bed.selected <- bed.all[ bed.all$V1 == chr & bed.all$V2 > arm.start & bed.all$V2 < arm.end, ]
+hist(round(bed.selected$V2/1000), xlim=c(arm.start/1000, arm.end/1000))
+ks.test(start, bed.selected$V2)
+```
+
+we don't see anything significant.
+
 chr18p
 ---
 ```{r}
@@ -285,6 +320,17 @@ ks.test(runif(length(start), arm.start, arm.end), "punif", arm.start, arm.end)
 
 No significant location preferences
 
+If we account for the distribution of of all cpg sites from the chip on this chromosome arm (shown)
+
+```{r}
+# Comparing with location of all cpg sites.
+bed.selected <- bed.all[ bed.all$V1 == chr & bed.all$V2 > arm.start & bed.all$V2 < arm.end, ]
+hist(round(bed.selected$V2/1000), xlim=c(arm.start/1000, arm.end/1000))
+ks.test(start, bed.selected$V2)
+```
+
+we don't see anything significant.
+
 chr18q
 ---
 ```{r}
@@ -302,6 +348,17 @@ ks.test(runif(length(start), arm.start, arm.end), "punif", arm.start, arm.end)
 ```
 
 Yes, close to the end of the chromosome.
+
+If we account for the distribution of of all cpg sites from the chip on this chromosome arm (shown)
+
+```{r}
+# Comparing with location of all cpg sites.
+bed.selected <- bed.all[ bed.all$V1 == chr & bed.all$V2 > arm.start & bed.all$V2 < arm.end, ]
+hist(round(bed.selected$V2/1000), xlim=c(arm.start/1000, arm.end/1000))
+ks.test(start, bed.selected$V2)
+```
+
+we don't see anything significant.
 
 chr22p
 ---
