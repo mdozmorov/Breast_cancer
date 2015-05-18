@@ -1,0 +1,428 @@
+---
+title: "Telomere length analysis"
+#author: "Mikhail G. Dozmorov"
+#date: "April 3, 2015"
+output: html_document
+---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+suppressMessages(source("../../../GenomeRunner/R.GenomeRunner/utils1.R"))
+# Set up the environment
+library(knitr) 
+opts_chunk$set(cache.path='cache/', fig.path='img/', cache=F, tidy=T, fig.keep='high', echo=F, dpi=100, warnings=F, message=F, comment=NA, warning=F) #out.width=700, 
+options(replace.assign=TRUE)#, width=120)
+suppressMessages(library(pander))
+panderOptions('table.split.table', Inf)
+set.seed(1)
+```
+
+Load telomere length data ...
+
+```{r}
+library(reshape2)
+library(xlsx)
+mtx.telomere <- read.xlsx2("data//Chromosome-Specific TL data .xlsx", sep="\t", sheetName="Sheet1", startRow=2)
+mtx.telomere <- mtx.telomere[, c(-1, -50)] # Remove unique sample ID in the first column, and empty last column
+mtx.melt <- melt(mtx.telomere, id.vars=c("name", "group")) # Long format
+mtx.melt <- mutate(mtx.melt, arm=ifelse(grepl("p", mtx.melt$variable), "p", "q")) # Add p/q column designation
+mtx.cast <- dcast(mtx.melt, name~group+arm+variable) # Wide format
+rownames.mtx.cast <- mtx.cast$name # Save names
+mtx.cast <- mtx.cast[, -1]
+mtx.cast <- sapply(mtx.cast, function(x) {class(x) <- "numeric"; x})
+rownames(mtx.cast) <- rownames.mtx.cast
+```
+
+Load annotation data ...
+
+```{r}
+load("data/Tim/Tel_DNAm_Samples.Rdata")
+annot <- Tel_DNAm_samples; rm(Tel_DNAm_samples)
+setdiff(rownames(mtx.cast), annot$iid) # Are all samples in telomere data annotated? Should be 0
+# Corrections
+annot$Chemo_Revised[ annot$iid == "2038" ] <- "AC" # or "TAC"
+annot$Chemo_Revised[ annot$iid == "2027" ] <- "TAC"
+annot$Chemo_Revised[ annot$iid == "2046" ] <- "CMF"
+
+
+names.both <- annot$iid[ annot$in.Telomere == "Yes" & annot$in.DNAm == "Yes" ] # Samples both with temolere and methylation data
+annot.telo <- annot[ match(rownames(mtx.cast), annot$iid), ] # Subset of annotation matched to telomere data
+print("Chemo type counts in telomere data")
+pander(as.data.frame(table(annot.telo$Chemo_Revised)))
+```
+
+Load methylation data ...
+
+```{r cache=TRUE}
+load("data//Tim/visit_1_2.Rdata")
+setdiff(rownames(mtx.cast)[ rownames(mtx.cast) %in% names.both ], colnames(visit1)) # Are there any samples not in the methylation data? Should be 0
+```
+ 
+Hierarchical clustering using all (not filtered by visit) patient-specific telomere length data
+---
+
+```{r}
+library(cluster)
+IAC=cor(t(mtx.cast), use="p")
+cluster1=hclust(as.dist(1-IAC),method="ward.D") # "ward", "single", "complete", "average", "mcquitty", "median" or "centroid".
+# pdf("results/Figure_clustering.pdf")
+plot(cluster1, cex=0.7, labels=paste(annot.telo$Chemo_Revised, annot.telo$iid, sep="_"), main="Clustering of patients by similaritiy of their telomere length")
+# dev.off()
+```
+
+Principal component analysis using all (not filtered by visit) patient-specific telomere length data
+---
+
+```{r checkPCA}
+mtx.cast.sub <- mtx.cast[ annot.telo$Chemo_Revised %in% c("TAC", "TC", "TCH"), ]
+annot.telo.sub <- annot.telo[ annot.telo$Chemo_Revised %in% c("TAC", "TC", "TCH"), ]
+
+pca<-prcomp(t(mtx.cast.sub))$rotation
+x = pca[,1]; y = pca[,2]
+cols <- as.numeric(factor(annot.telo.sub$Chemo_Revised))
+cols[ cols == 1 ] <- "red" # TAC
+cols[ cols == 2 ] <- "green" # TC
+cols[ cols == 3 ] <- "blue" # TCH
+xadj<-0.1*(max(x)-min(x)); yadj<-0.1*(max(y)-min(y)) 
+plot(x,y,xlab="PC1", ylab="PC2", main="PC analysis on cohorts",
+   xlim=c(min(x) - xadj, max(x) + xadj), ylim=c(min(y) - yadj, max(y) + yadj),
+   pch=19,
+   col=cols) 
+text(x,y+0.03, labels=rownames(pca), cex=0.7)
+legend("bottomright", c("TAC", "TC", "TCH"), col=c( "red", "green", "blue"), pch=c(19))
+```
+
+PCA 3D using all (not filtered by visit) patient-specific telomere length data
+---
+
+```{r checkPCA3, eval=FALSE}
+# http://davetang.org/muse/2015/02/12/animated-plots-using-r/
+library(scatterplot3d)
+frames <- 360
+ rename <- function(x){
+  if (x < 10) {
+    return(name <- paste('000',i,'plot.png',sep=''))
+  }
+  if (x < 100 && i >= 10) {
+    return(name <- paste('00',i,'plot.png', sep=''))
+  }
+  if (x >= 100) {
+    return(name <- paste('0', i,'plot.png', sep=''))
+  }
+}
+p <- prcomp((mtx.cast.sub))
+my_col <- as.numeric(factor(annot.telo.sub$Chemo_Revised))
+#loop through plots
+for(i in 1:frames){
+  name <- rename(i)
+   
+  #saves the plot as a .png file in the working directory
+  png(name)
+  scatterplot3d(p$x[,1:3],
+                main=paste("Angle", i),
+                angle=i,
+                pch=19,
+                cex.symbols=0.5,
+                color=my_col)
+  dev.off()
+}
+my_command <- 'convert *.png -delay 1 -loop 0 3d.gif'
+system(my_command)
+system("rm *.png")
+```
+
+![](3d.gif)
+
+Differential telomere length analysis
+===
+
+```{r eval=FALSE}
+annot.telo.sub1 <- annot.telo.sub[ annot.telo.sub$Chemo_Revised %in% c("TAC", "TC"), ]
+mtx.cast.sub1 <- mtx.cast.sub[ rownames(mtx.cast.sub) %in% annot.telo.sub1$iid, ]
+
+tel.v1 <- t(mtx.cast.sub1[ , grepl("1_", colnames(mtx.cast.sub1))])
+annot.v1 <- annot.telo.sub1[ match(colnames(tel.v1), annot.telo.sub1$iid), ]
+tel.v2 <- t(mtx.cast.sub1[ , grepl("2_", colnames(mtx.cast.sub1))])
+annot.v2 <- annot.telo.sub1[ match(colnames(tel.v2), annot.telo.sub1$iid), ]
+tel.v12 <- cbind(tel.v1, tel.v2)
+annot.v12 <- rbind(annot.v1, annot.v2)
+annot.v12 <- annot.v12[ annot.v12$Chemo_Revised %in% c("TAC", "TC"), ]
+patient <- factor(colnames(tel.v12))
+treatment <- factor(annot.v12$Chemo_Revised)
+design <- model.matrix(~0+patient+treatment)
+```
+
+Which therapy induces significant telomere length changes between the two visits?
+---
+
+```{r}
+tel.v1 <- t(mtx.cast.sub[ , grepl("1_", colnames(mtx.cast.sub))])
+annot.v1 <- annot.telo.sub[ match(colnames(tel.v1), annot.telo.sub$iid), ]
+tel.v2 <- t(mtx.cast.sub[ , grepl("2_", colnames(mtx.cast.sub))])
+annot.v2 <- annot.telo.sub[ match(colnames(tel.v2), annot.telo.sub$iid), ]
+
+TC1.TC2 <- list()
+for (i in 1:nrow(tel.v1)) {
+  TC1.TC2 <- c(TC1.TC2, list(t.test(tel.v1[i, annot.v1$iid[ annot.v1$Chemo_Revised == "TC"]],
+                                    tel.v2[i, annot.v2$iid[ annot.v2$Chemo_Revised == "TC"]],
+                                    paired=TRUE)$p.value))
+}
+TC.12 <- unlist(TC1.TC2); TC.12 <- ifelse(TC.12 < 0.05, 1, 0)
+
+TCH1.TCH2 <- list()
+for (i in 1:nrow(tel.v1)) {
+  TCH1.TCH2 <- c(TCH1.TCH2, list(t.test(tel.v1[i, annot.v1$iid[ annot.v1$Chemo_Revised == "TCH"]],
+                                    tel.v2[i, annot.v2$iid[ annot.v2$Chemo_Revised == "TCH"]],
+                                    paired=TRUE)$p.value))
+}
+TCH.12 <- unlist(TCH1.TCH2); TCH.12 <- ifelse(TCH.12 < 0.05, 1, 0)
+
+TAC1.TAC2 <- list()
+for (i in 1:nrow(tel.v1)) {
+  TAC1.TAC2 <- c(TAC1.TAC2, list(t.test(tel.v1[i, annot.v1$iid[ annot.v1$Chemo_Revised == "TAC"]],
+                                    tel.v2[i, annot.v2$iid[ annot.v2$Chemo_Revised == "TAC"]],
+                                    paired=TRUE)$p.value))
+}
+TAC.12 <- unlist(TAC1.TAC2); TAC.12 <- ifelse(TAC.12 < 0.05, 1, 0)
+
+library(limma)
+vennDiagram(vennCounts(cbind(TC.12, TCH.12, TAC.12)))
+print("TCH.12")
+sub("1_", "", rownames(tel.v1)[TCH.12 == 1])
+print("TAC.12")
+sub("1_", "", rownames(tel.v1)[TAC.12 == 1])
+```
+
+Are TCH-specific cpgs show some location bias on chr21p?
+---
+```{r eval=FALSE}
+chr <- "chr21"
+arm.start <- 1
+arm.end <- 10900000
+bed <- read.table("data/Tim/TCHonly.bed", sep="\t", stringsAsFactors = FALSE)
+bed <- bed[ bed$V1 == chr & bed$V2 > arm.start & bed$V2 < arm.end, ]
+start <- as.numeric(bed$V2)
+print("Observed in real life")
+ks.test(start, "punif", arm.start, arm.end)
+hist(round(start/1000), xlim=c(arm.start/1000, arm.end/1000))
+print("Expected by chance")
+ks.test(runif(length(start), arm.start, arm.end), "punif", arm.start, arm.end)
+```
+
+No differentially methylated CpGs on chr22p.
+
+Are TAC-specific cpgs show some location bias?
+---
+
+chr1p
+---
+```{r echo = TRUE}
+chr <- "chr1"
+arm.start <- 1
+arm.end <- 121500000
+bed <- read.table("data/Tim/TAConly.bed", sep="\t", stringsAsFactors = FALSE)
+bed <- bed[ bed$V1 == chr & bed$V2 > arm.start & bed$V2 < arm.end, ]
+start <- as.numeric(bed$V2)
+print("Observed in real life")
+ks.test(start, "punif", arm.start, arm.end)
+hist(round(start/1000), xlim=c(arm.start/1000, arm.end/1000))
+print("Expected by chance")
+ks.test(runif(length(start), arm.start, arm.end), "punif", arm.start, arm.end)
+```
+
+Yes, close to the beginning of the chromosome.
+
+chr9q
+---
+```{r}
+chr <- "chr9"
+arm.start <- 50700001
+arm.end <- 141213431
+bed <- read.table("data/Tim/TAConly.bed", sep="\t", stringsAsFactors = FALSE)
+bed <- bed[ bed$V1 == chr & bed$V2 > arm.start & bed$V2 < arm.end, ]
+start <- as.numeric(bed$V2)
+print("Observed in real life")
+ks.test(start, "punif", arm.start, arm.end)
+hist(round(start/1000), xlim=c(arm.start/1000, arm.end/1000))
+print("Expected by chance")
+ks.test(runif(length(start), arm.start, arm.end), "punif", arm.start, arm.end)
+```
+
+Yes, close to the end of the chromosome.
+
+chr12q
+---
+```{r}
+chr <- "chr12"
+arm.start <- 38200001
+arm.end <- 133851895
+bed <- read.table("data/Tim/TAConly.bed", sep="\t", stringsAsFactors = FALSE)
+bed <- bed[ bed$V1 == chr & bed$V2 > arm.start & bed$V2 < arm.end, ]
+start <- as.numeric(bed$V2)
+print("Observed in real life")
+ks.test(start, "punif", arm.start, arm.end)
+hist(round(start/1000), xlim=c(arm.start/1000, arm.end/1000))
+print("Expected by chance")
+ks.test(runif(length(start), arm.start, arm.end), "punif", arm.start, arm.end)
+```
+
+Yes, close to the end of the chromosome.
+
+chr18p
+---
+```{r}
+chr <- "chr18"
+arm.start <- 1
+arm.end <- 15400000
+bed <- read.table("data/Tim/TAConly.bed", sep="\t", stringsAsFactors = FALSE)
+bed <- bed[ bed$V1 == chr & bed$V2 > arm.start & bed$V2 < arm.end, ]
+start <- as.numeric(bed$V2)
+print("Observed in real life")
+ks.test(start, "punif", arm.start, arm.end)
+hist(round(start/1000), xlim=c(arm.start/1000, arm.end/1000))
+print("Expected by chance")
+ks.test(runif(length(start), arm.start, arm.end), "punif", arm.start, arm.end)
+```
+
+No significant location preferences
+
+chr18q
+---
+```{r}
+chr <- "chr18"
+arm.start <- 19000001
+arm.end <- 78077248
+bed <- read.table("data/Tim/TAConly.bed", sep="\t", stringsAsFactors = FALSE)
+bed <- bed[ bed$V1 == chr & bed$V2 > arm.start & bed$V2 < arm.end, ]
+start <- as.numeric(bed$V2)
+print("Observed in real life")
+ks.test(start, "punif", arm.start, arm.end)
+hist(round(start/1000), xlim=c(arm.start/1000, arm.end/1000))
+print("Expected by chance")
+ks.test(runif(length(start), arm.start, arm.end), "punif", arm.start, arm.end)
+```
+
+Yes, close to the end of the chromosome.
+
+chr22p
+---
+```{r eval=FALSE}
+chr <- "chr22"
+arm.start <- 1
+arm.end <- 12200000
+bed <- read.table("data/Tim/TAConly.bed", sep="\t", stringsAsFactors = FALSE)
+bed <- bed[ bed$V1 == chr & bed$V2 > arm.start & bed$V2 < arm.end, ]
+start <- as.numeric(bed$V2)
+print("Observed in real life")
+ks.test(start, "punif", arm.start, arm.end)
+hist(round(start/1000), xlim=c(arm.start/1000, arm.end/1000))
+print("Expected by chance")
+ks.test(runif(length(start), arm.start, arm.end), "punif", arm.start, arm.end)
+```
+
+No differentially methylated CpGs on chr22p
+
+Patient's clustering by the differences in chromosome lengths
+==
+
+```{r}
+tel.diff <- tel.v2 - tel.v1
+library(cluster)
+IAC=cor(tel.diff, use="p")
+cluster1=hclust(as.dist(1-IAC),method="ward.D") # "ward", "single", "complete", "average", "mcquitty", "median" or "centroid".
+# pdf("results/Figure_clustering.pdf")
+plot(cluster1, cex=0.7, labels=paste(annot.v1$Chemo_Revised, annot.v1$iid, sep="_"), main="Clustering of patients by similaritiy of their telomere length")
+# dev.off()
+```
+
+Principal component analysis using the differences in chromosome lengths
+---
+
+```{r}
+pca<-prcomp((tel.diff))$rotation
+x = pca[,1]; y = pca[,2]
+cols <- as.numeric(factor(annot.v1$Chemo_Revised))
+cols[ cols == 1 ] <- "red" # TAC
+cols[ cols == 2 ] <- "green" # TC
+cols[ cols == 3 ] <- "blue" # TCH
+xadj<-0.1*(max(x)-min(x)); yadj<-0.1*(max(y)-min(y)) 
+plot(x,y,xlab="PC1", ylab="PC2", main="PC analysis on cohorts",
+   xlim=c(min(x) - xadj, max(x) + xadj), ylim=c(min(y) - yadj, max(y) + yadj),
+   pch=19,
+   col=cols) 
+text(x,y+0.03, labels=rownames(pca), cex=0.7)
+legend("bottomright", c("TAC", "TC", "TCH"), col=c( "red", "green", "blue"), pch=c(19))
+```
+
+PCA 3D using the differences in chromosome lengths
+---
+
+```{r eval=FALSE}
+# http://davetang.org/muse/2015/02/12/animated-plots-using-r/
+library(scatterplot3d)
+frames <- 360
+ rename <- function(x){
+  if (x < 10) {
+    return(name <- paste('000',i,'plot.png',sep=''))
+  }
+  if (x < 100 && i >= 10) {
+    return(name <- paste('00',i,'plot.png', sep=''))
+  }
+  if (x >= 100) {
+    return(name <- paste('0', i,'plot.png', sep=''))
+  }
+}
+p <- prcomp(t(tel.diff))
+my_col <- as.numeric(factor(annot.telo.sub$Chemo_Revised))
+#loop through plots
+for(i in 1:frames){
+  name <- rename(i)
+   
+  #saves the plot as a .png file in the working directory
+  png(name)
+  scatterplot3d(p$x[,1:3],
+                main=paste("Angle", i),
+                angle=i,
+                pch=19,
+                cex.symbols=0.5,
+                color=my_col)
+  dev.off()
+}
+my_command <- 'convert *.png -delay 1 -loop 0 3ddiff.gif'
+system(my_command)
+system("rm *.png")
+```
+
+![](3ddiff.gif)
+
+
+```{r eval=FALSE}
+# Look at each chromosome separately
+hg19.genome <- read.table("data/hg19.genome", sep="\t", header=T, stringsAsFactors = FALSE)
+hg19.genome <- hg19.genome[1:24, ] # Limit genome to 24 main chromosomes
+hg19.genome <- hg19.genome[ order(hg19.genome$chrom), ] # Order them as the BED file
+#fname <- "TCHonly"
+#fname <- "TAConly"
+#fname <- "TConly"
+fname <- "VennMiddle"
+
+pdf(paste("results/", fname, "_cpg_chrom_location.pdf"))
+for(c in 1:nrow(hg19.genome)) {
+  bed <- read.table(paste("data/Tim/", fname, ".bed", sep=""), sep="\t", stringsAsFactors = FALSE)
+  chr <- hg19.genome$chrom[c]
+  arm.start <- 1
+  arm.end <- hg19.genome$size[c]
+  bed <- bed[ bed$V1 == chr & bed$V2 > arm.start & bed$V2 < arm.end, ]
+  if(nrow(bed) > 0) {
+  start <- as.numeric(bed$V2)
+  #print("Observed in real life")
+  ks.test(start, "punif", arm.start, arm.end)
+  hist(round(start/1000), xlim=c(arm.start/1000, arm.end/1000), main=paste(fname, hg19.genome$chrom[c], sep=" "))    
+  } else {
+    print(paste("No differentially methylated CpGs in", fname, "condition on", hg19.genome$chrom[c]))
+  }
+}
+dev.off()
+
+```
+
+
