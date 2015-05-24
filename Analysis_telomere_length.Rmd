@@ -62,7 +62,7 @@ setdiff(rownames(mtx.cast)[ rownames(mtx.cast) %in% names.both ], colnames(visit
 Hierarchical clustering using all (not filtered by visit) patient-specific telomere length data
 ---
 
-```{r}
+```{r eval=FALSE}
 library(cluster)
 IAC=cor(t(mtx.cast), use="p")
 cluster1=hclust(as.dist(1-IAC),method="ward.D") # "ward", "single", "complete", "average", "mcquitty", "median" or "centroid".
@@ -71,13 +71,21 @@ plot(cluster1, cex=0.7, labels=paste(annot.telo$Chemo_Revised, annot.telo$iid, s
 # dev.off()
 ```
 
+```{r}
+library("NMF")
+annot.telo.sub <- annot.telo[ annot.telo$Chemo_Revised %in% c("TAC", "TC", "TCH"), ] # Subset data
+mtx.cast.sub <- mtx.cast[ match(annot.telo.sub$iid, rownames(mtx.cast)), ]
+# d <- t(mtx.cast.sub)
+d <- sweep(t(mtx.cast.sub), 1, apply(t(mtx.cast.sub), 1, median, na.rm=T)) # Median centering, from ConsensusClusterPlus
+# d <- scale(t(mtx.cast.sub)) # Transpose, and scale by columns (patients) 
+# d <- t(scale(t(d))) # Scale by telomere length
+aheatmap(d, annCol=annot.telo.sub$Chemo_Revised, distfun = "euclidean", hclustfun="ward.D2", scale="row")
+```
+
 Principal component analysis using all (not filtered by visit) patient-specific telomere length data
 ---
 
 ```{r checkPCA}
-mtx.cast.sub <- mtx.cast[ annot.telo$Chemo_Revised %in% c("TAC", "TC", "TCH"), ]
-annot.telo.sub <- annot.telo[ annot.telo$Chemo_Revised %in% c("TAC", "TC", "TCH"), ]
-
 pca<-prcomp(t(mtx.cast.sub))$rotation
 x = pca[,1]; y = pca[,2]
 cols <- as.numeric(factor(annot.telo.sub$Chemo_Revised))
@@ -381,7 +389,7 @@ No differentially methylated CpGs on chr22p
 Patient's clustering by the differences in chromosome lengths
 ==
 
-```{r}
+```{r eval=FALSE}
 tel.diff <- tel.v2 - tel.v1
 library(cluster)
 IAC=cor(tel.diff, use="p")
@@ -390,6 +398,17 @@ cluster1=hclust(as.dist(1-IAC),method="ward.D") # "ward", "single", "complete", 
 plot(cluster1, cex=0.7, labels=paste(annot.v1$Chemo_Revised, annot.v1$iid, sep="_"), main="Clustering of patients by similaritiy of their telomere length")
 # dev.off()
 ```
+
+```{r}
+tel.diff <- tel.v2 - tel.v1
+tel.diff <- tel.diff[, match(annot.telo.sub$iid, colnames(tel.diff))]
+# d <- tel.diff
+d <- sweep(tel.diff, 1, apply(tel.diff, 1, median, na.rm=T)) # Median centering, from ConsensusClusterPlus
+# d <- scale(tel.diff) # Transpose, and scale by columns (patients) 
+# d <- t(scale(t(d))) # Scale by telomere length
+aheatmap(d, annCol=annot.telo.sub$Chemo_Revised, distfun = "euclidean", hclustfun="ward.D2", scale="row")
+```
+
 
 Principal component analysis using the differences in chromosome lengths
 ---
