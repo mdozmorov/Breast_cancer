@@ -176,7 +176,7 @@ for (i in 1:nrow(tel.v1)) {
                                     tel.v2[i, annot.v2$iid[ annot.v2$Chemo_Revised == "TC"]],
                                     paired=TRUE)$p.value))
 }
-TC.12 <- unlist(TC1.TC2); TC.12 <- ifelse(TC.12 < 0.05, 1, 0)
+TC1.TC2 <- unlist(TC1.TC2); TC.12 <- ifelse(TC1.TC2 < 0.05, 1, 0)
 
 TCH1.TCH2 <- list()
 for (i in 1:nrow(tel.v1)) {
@@ -184,7 +184,7 @@ for (i in 1:nrow(tel.v1)) {
                                     tel.v2[i, annot.v2$iid[ annot.v2$Chemo_Revised == "TCH"]],
                                     paired=TRUE)$p.value))
 }
-TCH.12 <- unlist(TCH1.TCH2); TCH.12 <- ifelse(TCH.12 < 0.05, 1, 0)
+TCH1.TCH2 <- unlist(TCH1.TCH2); TCH.12 <- ifelse(TCH1.TCH2 < 0.05, 1, 0)
 
 TAC1.TAC2 <- list()
 for (i in 1:nrow(tel.v1)) {
@@ -192,8 +192,15 @@ for (i in 1:nrow(tel.v1)) {
                                     tel.v2[i, annot.v2$iid[ annot.v2$Chemo_Revised == "TAC"]],
                                     paired=TRUE)$p.value))
 }
-TAC.12 <- unlist(TAC1.TAC2); TAC.12 <- ifelse(TAC.12 < 0.05, 1, 0)
+TAC1.TAC2 <- unlist(TAC1.TAC2); TAC.12 <- ifelse(TAC1.TAC2 < 0.05, 1, 0)
 
+# Save the results
+telo.diff <- cbind(TC1.TC2, TCH1.TCH2, TAC1.TAC2)
+rownames(telo.diff) <- sub("1_", "", rownames(tel.v1))
+colnames(telo.diff) <- c("TC12", "TCH12", "TAC12")
+write.table(telo.diff, "results/telo_diff.txt", sep="\t", quote=FALSE, col.names=NA)
+
+# Visualize as a Venn diagram
 library(limma)
 vennDiagram(vennCounts(cbind(TC.12, TCH.12, TAC.12)))
 print("TCH.12")
