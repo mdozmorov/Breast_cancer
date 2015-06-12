@@ -1,0 +1,216 @@
+---
+title: "CpG to gene functional enrichment analysis"
+author: "Mikhail G. Dozmorov"
+date: "June 11, 2015"
+output: html_document
+---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+suppressMessages(source("../../../GenomeRunner/R.GenomeRunner/utils1.R"))
+# Set up the environment
+library(knitr) 
+opts_chunk$set(cache.path='cache/', fig.path='img/', cache=F, tidy=T, fig.keep='high', echo=F, dpi=100, warnings=F, message=F, comment=NA, warning=F) #out.width=700, 
+options(replace.assign=TRUE)#, width=120)
+suppressMessages(library(pander))
+panderOptions('table.split.table', Inf)
+set.seed(1)
+```
+
+```{r}
+source("/Users/mikhail/Documents/Work/VCU_work/Kazuaki/pdx-reanalysis/functions/gene_enrichment.r")
+library("ReactomePA")
+library("DOSE")
+library("xlsx")
+```
+
+Load data
+===
+
+```{r eval=FALSE}
+# Sanity check for enrichment analyses
+# Load a 'universe' of all EntrezIDs on the array
+geneALL <- read.csv("/Users/mikhail/Documents/Work/VCU_work/Kazuaki/pdx-reanalysis/data/GPL570.csv") # Annotation of all probes on the array
+geneALL <- geneALL[ geneALL$Gene.ID != "", ] # Remove empty EntrezIDs
+geneALL <- unembed(data=geneALL, col="Gene.ID", sep="///") # Unembed probes with multiple EntrezIDs
+geneALL <- unique(geneALL$Gene.ID) # Keep only unique
+# Select type of study
+study <- "uronis-within-patient-liver"
+# Load gene list
+geneDEGs <- read.table(paste("/Users/mikhail/Documents/Work/VCU_work/Kazuaki/pdx-reanalysis/results//significant-diff-exp-", study, ".csv", sep="") , sep=",", header=T, row.names=1, stringsAsFactors=F)
+# Unembed multiple IDs
+geneDEGs <- unembed(data=geneDEGs, col="entrez", sep="///")
+# Create list of gene Entrez IDs
+geneList <- unique(geneDEGs$entrez)
+geneList <- as.character(geneList[geneList != ""])
+```
+
+
+```{r}
+# Universe of all EntrezIDs
+all.entrez <- unlist(xx); all.entrez <- all.entrez[!is.na(all.entrez)] 
+
+mtx <- read.table("data/Strict/TXT/TAConly_annot.txt", sep="\t", stringsAsFactors = FALSE)
+TAConly <- unlist(unique(unembed(mtx[, "V5", drop=FALSE], "V5", ";")))
+TAConly.entrez <- unlist(xx)[TAConly]; TAConly.entrez <- as.character(TAConly.entrez[!is.na(TAConly.entrez)])
+
+mtx <- read.table("data/Strict/TXT/TCHonly_annot.txt", sep="\t", stringsAsFactors = FALSE)
+TCHonly <- unlist(unique(unembed(mtx[, "V5", drop=FALSE], "V5", ";")))
+TCHonly.entrez <- unlist(xx)[TCHonly]; TCHonly.entrez <- as.character(TCHonly.entrez[!is.na(TCHonly.entrez)])
+
+mtx <- read.table("data/Strict/TXT/TConly_annot.txt", sep="\t", stringsAsFactors = FALSE)
+TConly <- unlist(unique(unembed(mtx[, "V5", drop=FALSE], "V5", ";")))
+TConly.entrez <- unlist(xx)[TConly]; TConly.entrez <- as.character(TConly.entrez[!is.na(TConly.entrez)])
+
+mtx <- read.table("data/Strict/TXT/VennMiddle_annot.txt", sep="\t", stringsAsFactors = FALSE)
+VennMiddle <- unlist(unique(unembed(mtx[, "V5", drop=FALSE], "V5", ";")))
+VennMiddle.entrez <- unlist(xx)[VennMiddle]; VennMiddle.entrez <- as.character(VennMiddle.entrez[!is.na(VennMiddle.entrez)])
+```
+
+VennMiddle analysis
+===
+
+```{r}
+res <- Enrichment(VennMiddle.entrez, id="entrezgene", use="GO", ont="MF")
+res <- res[ res$Count > 1, , drop=FALSE]
+if (!is.null(nrow(res))) {
+  write.xlsx2(res, "results/enrichment-VennMiddle.xlsx", sheet="GO-MF", row.names=FALSE, append=TRUE)
+}
+```
+```{r}
+res <- Enrichment(VennMiddle.entrez, id="entrezgene", use="GO", ont="BP")
+res <- res[ res$Count > 1, , drop=FALSE]
+if (!is.null(nrow(res))) {
+  write.xlsx2(res, "results/enrichment-VennMiddle.xlsx", sheet="GO-BP", row.names=FALSE, append=TRUE)
+}
+```
+```{r}
+res <- Enrichment(VennMiddle.entrez, id="entrezgene", use="KEGG")
+res <- res[ res$Count > 1, , drop=FALSE]
+if (!is.null(nrow(res))) {
+  write.xlsx2(res, "results/enrichment-VennMiddle.xlsx", sheet="KEGG", row.names=FALSE, append=TRUE)
+}
+```
+```{r}
+res <- enrichPathway(gene = VennMiddle.entrez, universe = all.entrez, organism = "human", pAdjustMethod = "BH", pvalueCutoff = 0.01, qvalueCutoff = 0.05, readable = TRUE)
+if (!is.null(nrow(res))) {
+  write.xlsx2(res, "results/enrichment-VennMiddle.xlsx", sheet="Reactome", row.names=FALSE, append=TRUE)
+}
+```
+```{r}
+res <- enrichDO(gene = VennMiddle.entrez, universe = all.entrez, ont = "DO", pAdjustMethod = "BH", pvalueCutoff = 0.01, qvalueCutoff = 0.05, readable = TRUE)
+if (!is.null(nrow(res))) {
+  write.xlsx2(res, "results/enrichment-VennMiddle.xlsx", sheet="DO", row.names=FALSE, append=TRUE)
+}
+```
+
+TAConly analysis
+===
+
+```{r}
+res <- Enrichment(TAConly.entrez, id="entrezgene", use="GO", ont="MF")
+res <- res[ res$Count > 1, , drop=FALSE]
+if (!is.null(nrow(res))) {
+  write.xlsx2(res, "results/enrichment-TAConly.xlsx", sheet="GO-MF", row.names=FALSE, append=TRUE)
+}
+```
+```{r}
+res <- Enrichment(TAConly.entrez, id="entrezgene", use="GO", ont="BP")
+res <- res[ res$Count > 1, , drop=FALSE]
+if (!is.null(nrow(res))) {
+  write.xlsx2(res, "results/enrichment-TAConly.xlsx", sheet="GO-BP", row.names=FALSE, append=TRUE)
+}
+```
+```{r}
+res <- Enrichment(TAConly.entrez, id="entrezgene", use="KEGG")
+res <- res[ res$Count > 1, , drop=FALSE]
+if (!is.null(nrow(res))) {
+  write.xlsx2(res, "results/enrichment-TAConly.xlsx", sheet="KEGG", row.names=FALSE, append=TRUE)
+}
+```
+```{r}
+res <- enrichPathway(gene = TAConly.entrez, universe = all.entrez, organism = "human", pAdjustMethod = "BH", pvalueCutoff = 0.01, qvalueCutoff = 0.05, readable = TRUE)
+if (!is.null(nrow(res))) {
+  write.xlsx2(res, "results/enrichment-TAConly.xlsx", sheet="Reactome", row.names=FALSE, append=TRUE)
+}
+```
+```{r}
+res <- enrichDO(gene = TAConly.entrez, universe = all.entrez, ont = "DO", pAdjustMethod = "BH", pvalueCutoff = 0.01, qvalueCutoff = 0.05, readable = TRUE)
+if (!is.null(nrow(res))) {
+  write.xlsx2(res, "results/enrichment-TAConly.xlsx", sheet="DO", row.names=FALSE, append=TRUE)
+}
+```
+
+TCHonly analysis
+===
+
+```{r}
+res <- Enrichment(TCHonly.entrez, id="entrezgene", use="GO", ont="MF")
+res <- res[ res$Count > 1, , drop=FALSE]
+if (!is.null(nrow(res))) {
+  write.xlsx2(res, "results/enrichment-TCHonly.xlsx", sheet="GO-MF", row.names=FALSE, append=TRUE)
+}
+```
+```{r}
+res <- Enrichment(TCHonly.entrez, id="entrezgene", use="GO", ont="BP")
+res <- res[ res$Count > 1, , drop=FALSE]
+if (!is.null(nrow(res))) {
+  write.xlsx2(res, "results/enrichment-TCHonly.xlsx", sheet="GO-BP", row.names=FALSE, append=TRUE)
+}
+```
+```{r}
+res <- Enrichment(TCHonly.entrez, id="entrezgene", use="KEGG")
+res <- res[ res$Count > 1, , drop=FALSE]
+if (!is.null(nrow(res))) {
+  write.xlsx2(res, "results/enrichment-TCHonly.xlsx", sheet="KEGG", row.names=FALSE, append=TRUE)
+}
+```
+```{r}
+res <- enrichPathway(gene = TCHonly.entrez, universe = all.entrez, organism = "human", pAdjustMethod = "BH", pvalueCutoff = 0.01, qvalueCutoff = 0.05, readable = TRUE)
+if (!is.null(nrow(res))) {
+  write.xlsx2(res, "results/enrichment-TCHonly.xlsx", sheet="Reactome", row.names=FALSE, append=TRUE)
+}
+```
+```{r}
+res <- enrichDO(gene = TCHonly.entrez, universe = all.entrez, ont = "DO", pAdjustMethod = "BH", pvalueCutoff = 0.01, qvalueCutoff = 0.05, readable = TRUE)
+if (!is.null(nrow(res))) {
+  write.xlsx2(res, "results/enrichment-TCHonly.xlsx", sheet="DO", row.names=FALSE, append=TRUE)
+}
+```
+
+TConly analysis
+===
+
+```{r}
+res <- Enrichment(TConly.entrez, id="entrezgene", use="GO", ont="MF")
+res <- res[ res$Count > 1, , drop=FALSE]
+if (!is.null(nrow(res))) {
+  write.xlsx2(res, "results/enrichment-TConly.xlsx", sheet="GO-MF", row.names=FALSE, append=TRUE)
+}
+```
+```{r}
+res <- Enrichment(TConly.entrez, id="entrezgene", use="GO", ont="BP")
+res <- res[ res$Count > 1, , drop=FALSE]
+if (!is.null(nrow(res))) {
+  write.xlsx2(res, "results/enrichment-TConly.xlsx", sheet="GO-BP", row.names=FALSE, append=TRUE)
+}
+```
+```{r}
+res <- Enrichment(TConly.entrez, id="entrezgene", use="KEGG")
+res <- res[ res$Count > 1, , drop=FALSE]
+if (!is.null(nrow(res))) {
+  write.xlsx2(res, "results/enrichment-TConly.xlsx", sheet="KEGG", row.names=FALSE, append=TRUE)
+}
+```
+```{r}
+res <- enrichPathway(gene = TConly.entrez, universe = all.entrez, organism = "human", pAdjustMethod = "BH", pvalueCutoff = 0.01, qvalueCutoff = 0.05, readable = TRUE)
+if (!is.null(nrow(res))) {
+  write.xlsx2(res, "results/enrichment-TConly.xlsx", sheet="Reactome", row.names=FALSE, append=TRUE)
+}
+```
+```{r}
+res <- enrichDO(gene = TConly.entrez, universe = all.entrez, ont = "DO", pAdjustMethod = "BH", pvalueCutoff = 0.01, qvalueCutoff = 0.05, readable = TRUE)
+if (!is.null(nrow(res))) {
+  write.xlsx2(res, "results/enrichment-TConly.xlsx", sheet="DO", row.names=FALSE, append=TRUE)
+}
+```
+
