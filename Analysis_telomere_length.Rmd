@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
-suppressMessages(source("../../../GenomeRunner/R.GenomeRunner/utils1.R"))
+suppressMessages(source("../../../GenomeRunner/R.GenomeRunner/utils2.R"))
 # Set up the environment
 library(knitr) 
 opts_chunk$set(cache.path='cache/', fig.path='img/', cache=F, tidy=T, fig.keep='high', echo=F, dpi=100, warnings=F, message=F, comment=NA, warning=F) #out.width=700, 
@@ -58,7 +58,47 @@ Load methylation data ...
 load("data//Tim/visit_1_2.Rdata")
 setdiff(rownames(mtx.cast)[ rownames(mtx.cast) %in% names.both ], colnames(visit1)) # Are there any samples not in the methylation data? Should be 0
 ```
- 
+
+Identifying chemo-specific methylation differences
+
+```{r}
+# Keep three therapies
+annot.3 <- annot[ annot$Chemo_Revised %in% c("TAC", "TC", "TCH") & annot$in.DNAm == "Yes", ]
+table(annot.3$Chemo_Revised) # TAC: 34; TC: 22; TCH: 11
+# Get methylation differences for these therapies
+visit.diff <- visit1 - visit2[, match(colnames(visit1), colnames(visit2))] # Matching column order
+visit.diff <- visit.diff[, annot.3$iid ] # Subset therapy-specific 
+visit.diff.TAC <- visit.diff[, annot.3$Chemo_Revised == "TAC"]
+visit.diff.TC <- visit.diff[, annot.3$Chemo_Revised == "TC"]
+visit.diff.TCH <- visit.diff[, annot.3$Chemo_Revised == "TCH"]
+visit.diff <- cbind(visit.diff.TAC, visit.diff.TC, visit.diff.TCH)
+
+# TAC-specific
+TACUP <- c(rep(1, ncol(visit.diff.TAC)), rep(0, ncol(visit.diff.TC)), rep(0, ncol(visit.diff.TCH))) # TAC up only
+TAC.cor.up <- apply(visit.diff, 1, function(x) cor(TACUP, x))
+write.table(rownames(visit.diff)[ TAC.cor.up > 0.5 & !is.na(TAC.cor.up & !is.na(rownames(visit.diff))) ], "results/cm_TACUP.txt", row.names = FALSE, col.names = FALSE, quote=FALSE)
+TACDN <- rev(TACUP) # TAC dn only
+TAC.cor.dn <- apply(visit.diff, 1, function(x) cor(TACDN, x))
+write.table(rownames(visit.diff)[ TAC.cor.dn > 0.5 & !is.na(TAC.cor.dn & !is.na(rownames(visit.diff))) ], "results/cm_TACDN.txt", row.names = FALSE, col.names = FALSE, quote=FALSE)
+
+# TC-specific
+TCUP <- c(rep(0, ncol(visit.diff.TAC)), rep(1, ncol(visit.diff.TC)), rep(0, ncol(visit.diff.TCH))) # TC up only
+TC.cor.up <- apply(visit.diff, 1, function(x) cor(TCUP, x))
+write.table(rownames(visit.diff)[ TC.cor.up > 0.5 & !is.na(TC.cor.up & !is.na(rownames(visit.diff))) ], "results/cm_TCUP.txt", row.names = FALSE, col.names = FALSE, quote=FALSE)
+TCDN <- rev(TCUP) # TC dn only
+TC.cor.dn <- apply(visit.diff, 1, function(x) cor(TCDN, x))
+write.table(rownames(visit.diff)[ TC.cor.dn > 0.5 & !is.na(TC.cor.dn & !is.na(rownames(visit.diff))) ], "results/cm_TCDN.txt", row.names = FALSE, col.names = FALSE, quote=FALSE)
+
+# TCH-specific
+TCHUP <- c(rep(0, ncol(visit.diff.TAC)), rep(0, ncol(visit.diff.TC)), rep(1, ncol(visit.diff.TCH))) # TC up only
+TCH.cor.up <- apply(visit.diff, 1, function(x) cor(TCHUP, x))
+write.table(rownames(visit.diff)[ TCH.cor.up > 0.5 & !is.na(TCH.cor.up & !is.na(rownames(visit.diff))) ], "results/cm_TCHUP.txt", row.names = FALSE, col.names = FALSE, quote=FALSE)
+TCHDN <- rev(TCHUP) # TCH dn only
+TCH.cor.dn <- apply(visit.diff, 1, function(x) cor(TCHDN, x))
+write.table(rownames(visit.diff)[ TCH.cor.dn > 0.5 & !is.na(TCH.cor.dn & !is.na(rownames(visit.diff))) ], "results/cm_TCHDN.txt", row.names = FALSE, col.names = FALSE, quote=FALSE)
+```
+
+
 Hierarchical clustering using all (not filtered by visit) patient-specific telomere length data
 ---
 
@@ -76,8 +116,8 @@ library("NMF")
 annot.telo.sub <- annot.telo[ annot.telo$Chemo_Revised %in% c("TAC", "TC", "TCH"), ] # Subset data
 mtx.cast.sub <- mtx.cast[ match(annot.telo.sub$iid, rownames(mtx.cast)), ]
 # d <- t(mtx.cast.sub)
-d <- sweep(t(mtx.cast.sub), 1, apply(t(mtx.cast.sub), 1, median, na.rm=T)) # Median centering, from ConsensusClusterPlus
-# d <- scale(t(mtx.cast.sub)) # Transpose, and scale by columns (patients) 
+# d <- sweep(t(mtx.cast.sub), 1, apply(t(mtx.cast.sub), 1, median, na.rm=T)) # Median centering, from ConsensusClusterPlus
+d <- scale(t(mtx.cast.sub)) # Transpose, and scale by columns (patients) 
 # d <- t(scale(t(d))) # Scale by telomere length
 aheatmap(d, annCol=annot.telo.sub$Chemo_Revised, distfun = "euclidean", hclustfun="ward.D2", scale="row")
 ```
@@ -160,6 +200,16 @@ patient <- factor(colnames(tel.v12))
 treatment <- factor(annot.v12$Chemo_Revised)
 design <- model.matrix(~0+patient+treatment)
 ```
+
+Are there differences in telomere shortening?
+---
+
+```{r tel_v12_diff}
+tel.v12.diff <- t(mtx.cast.sub[, grepl("2_", colnames(mtx.cast.sub))]) - t(mtx.cast.sub[, grepl("1_", colnames(mtx.cast.sub))])
+aheatmap(tel.v12.diff, annCol = annot.telo.sub$Chemo_Revised)
+```
+
+
 
 Which therapy induces significant telomere length changes between the two visits?
 ---
