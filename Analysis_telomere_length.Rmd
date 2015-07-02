@@ -98,6 +98,25 @@ TCH.cor.dn <- apply(visit.diff, 1, function(x) cor(TCHDN, x))
 write.table(rownames(visit.diff)[ TCH.cor.dn > 0.5 & !is.na(TCH.cor.dn & !is.na(rownames(visit.diff))) ], "results/cm_TCHDN.txt", row.names = FALSE, col.names = FALSE, quote=FALSE)
 ```
 
+Visualization
+===
+
+```{r}
+pdf("results/Figure_Chemo-Methyl.pdf")
+mtx.TACDN <- readLines("data/Chemo-Methyl/TXT/cm_TACDN.txt")
+aheatmap(visit.diff[ mtx.TACDN, ], color=rev(brewer.pal(10, "RdYlBu")), scale="row", Colv = NA, Rowv = NA, annCol=annot.3[match(colnames(visit.diff), annot.3$iid), "Chemo_Revised"])
+
+mtx.TACUP <- readLines("data/Chemo-Methyl/TXT/cm_TACUP.txt")
+aheatmap(visit.diff[ mtx.TACUP, ], color=rev(brewer.pal(10, "RdYlBu")), scale="row", Colv = NA, Rowv = NA, annCol=annot.3[match(colnames(visit.diff), annot.3$iid), "Chemo_Revised"])
+
+mtx.TCHDN <- readLines("data/Chemo-Methyl/TXT/cm_TCHDN.txt")
+aheatmap(visit.diff[ mtx.TCHDN, ], color=rev(brewer.pal(10, "RdYlBu")), scale="row", Colv = NA, Rowv = NA, annCol=annot.3[match(colnames(visit.diff), annot.3$iid), "Chemo_Revised"])
+
+mtx.TCUP <- readLines("data/Chemo-Methyl/TXT/cm_TCUP.txt")
+aheatmap(visit.diff[ mtx.TCUP, ], color=rev(brewer.pal(10, "RdYlBu")), scale="row", Colv = NA, Rowv = NA, annCol=annot.3[match(colnames(visit.diff), annot.3$iid), "Chemo_Revised"])
+dev.off()
+```
+
 
 Hierarchical clustering using all (not filtered by visit) patient-specific telomere length data
 ---
