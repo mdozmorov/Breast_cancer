@@ -1,0 +1,159 @@
+---
+title: "Epigenomic enrichment analysis of CpGs correlatinw with methylation changes"
+author: "Mikhail G. Dozmorov"
+date: "July 1, 2015"
+output: 
+  html_document:
+    toc: true
+---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+suppressMessages(source("../../../GenomeRunner/R.GenomeRunner/utils2.R"))
+# Set up the environment
+library(knitr) 
+opts_chunk$set(cache.path='cache/', fig.path='img/', cache=F, tidy=T, fig.keep='high', echo=F, dpi=100, warnings=F, message=F, comment=NA, warning=F, results='hide') #out.width=700, 
+options(replace.assign=TRUE)#, width=120)
+suppressMessages(library(pander))
+panderOptions('table.split.table', Inf)
+set.seed(1)
+```
+
+```{r}
+cells.blood.r <- c("E033", "E034", "E037", "E038", "E039", "E040", "E041", "E042", "E043", "E044", "E045", "E047", "E048", "E062", "E115", "E116", "E123", "E124", "E029", "E030", "E031", "E032", "E035", "E036", "E046", "E050", "E051") # Blood Roadmap
+# cells.r <- c("E119", "E027", "E028") # Breast Roadmap
+
+cells.blood.e <- c("Gm12878", "Cd20ro01778", "Cd20", "Cd20ro01794") # Blood Encode
+# cells.e <- c("Mcf7", "Hmec", "T47d", "Mcf10aes") # Breast Encode
+```
+
+
+TFBSs from ENCODE, non cell type specific
+===
+
+TAC DN
+---
+
+```{r fig.height=3}
+fname <- "/Users/mikhail/Documents/Work/VCU_work/Coleen/Breast_cancer/data/Chemo-Methyl/encTfbsNames/matrix_PVAL.txt"
+tmp <- showHeatmap(fname, colnum=1, factor="none", cell="none", isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=5, toPlot="bar")
+tmp$up[, 1] <- as.numeric(mtx.untransform(tmp$up[, 1, drop=F]))
+tmp$dn[, 1] <- as.numeric(mtx.untransform(tmp$dn[, 1, drop=F]))
+write.xlsx(left_join(tmp$up, gfAnnot, by=c("factor" = "factor", "cell" = "cell")), "results/Table_GR_Chemo-Methyl.xlsx", sheetName="TAC_DN_encTfbsNames", append=T)
+```
+
+TAC UP
+---
+Nothing
+
+TCH DN
+---
+
+```{r fig.height=3}
+fname <- "/Users/mikhail/Documents/Work/VCU_work/Coleen/Breast_cancer/data/Chemo-Methyl/encTfbsNames/matrix_PVAL.txt"
+tmp <- showHeatmap(fname, colnum=3, factor="none", cell="none", isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=5, toPlot="bar")
+tmp$up[, 1] <- as.numeric(mtx.untransform(tmp$up[, 1, drop=F]))
+tmp$dn[, 1] <- as.numeric(mtx.untransform(tmp$dn[, 1, drop=F]))
+write.xlsx(left_join(tmp$up, gfAnnot, by=c("factor" = "factor", "cell" = "cell")), "results/Table_GR_Chemo-Methyl.xlsx", sheetName="TCH_DN_encTfbsNames", append=T)
+```
+
+TC UP
+---
+
+Nothing
+
+Chromatin states
+===
+
+TAC DN
+---
+
+```{r fig.height=3}
+fname <- "/Users/mikhail/Documents/Work/VCU_work/Coleen/Breast_cancer/data/Chemo-Methyl/chromStates18/matrix_PVAL.txt"
+tmp <- showHeatmap(fname, colnum=1, factor="none", cell=cells.blood.r, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=5, toPlot="bar")
+tmp$up[, 1] <- as.numeric(mtx.untransform(tmp$up[, 1, drop=F]))
+tmp$dn[, 1] <- as.numeric(mtx.untransform(tmp$dn[, 1, drop=F]))
+write.xlsx(left_join(tmp$up, gfAnnot, by=c("factor" = "factor", "cell" = "cell")), "results/Table_GR_Chemo-Methyl.xlsx", sheetName="TAC_DN_chromStates", append=T)
+```
+
+TAC UP
+---
+
+```{r fig.height=3}
+fname <- "/Users/mikhail/Documents/Work/VCU_work/Coleen/Breast_cancer/data/Chemo-Methyl/chromStates18/matrix_PVAL.txt"
+tmp <- showHeatmap(fname, colnum=2, factor="none", cell=cells.blood.r, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=5, toPlot="bar")
+tmp$up[, 1] <- as.numeric(mtx.untransform(tmp$up[, 1, drop=F]))
+tmp$dn[, 1] <- as.numeric(mtx.untransform(tmp$dn[, 1, drop=F]))
+write.xlsx(left_join(tmp$up, gfAnnot, by=c("factor" = "factor", "cell" = "cell")), "results/Table_GR_Chemo-Methyl.xlsx", sheetName="TAC_UP_chromStates", append=T)
+```
+
+TCH DN
+---
+
+```{r fig.height=3}
+fname <- "/Users/mikhail/Documents/Work/VCU_work/Coleen/Breast_cancer/data/Chemo-Methyl/chromStates18/matrix_PVAL.txt"
+tmp <- showHeatmap(fname, colnum=3, factor="none", cell=cells.blood.r, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=5, toPlot="bar")
+tmp$up[, 1] <- as.numeric(mtx.untransform(tmp$up[, 1, drop=F]))
+tmp$dn[, 1] <- as.numeric(mtx.untransform(tmp$dn[, 1, drop=F]))
+write.xlsx(left_join(tmp$up, gfAnnot, by=c("factor" = "factor", "cell" = "cell")), "results/Table_GR_Chemo-Methyl.xlsx", sheetName="TCH_DN_chromStates", append=T)
+```
+
+TC UP
+---
+
+Nothing
+
+Histone marks
+===
+
+TAC DN
+---
+
+```{r fig.height=3}
+fname <- "/Users/mikhail/Documents/Work/VCU_work/Coleen/Breast_cancer/data/Chemo-Methyl/broadPeak/matrix_PVAL.txt"
+tmp <- showHeatmap(fname, colnum=1, factor="none", cell=cells.blood.r, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=5, toPlot="bar")
+tmp$up[, 1] <- as.numeric(mtx.untransform(tmp$up[, 1, drop=F]))
+tmp$dn[, 1] <- as.numeric(mtx.untransform(tmp$dn[, 1, drop=F]))
+write.xlsx(left_join(tmp$up, gfAnnot, by=c("factor" = "factor", "cell" = "cell")), "results/Table_GR_Chemo-Methyl.xlsx", sheetName="TAC_DN_Histones", append=T)
+```
+
+TAC UP
+---
+
+```{r fig.height=3}
+fname <- "/Users/mikhail/Documents/Work/VCU_work/Coleen/Breast_cancer/data/Chemo-Methyl/broadPeak/matrix_PVAL.txt"
+tmp <- showHeatmap(fname, colnum=2, factor="none", cell=cells.blood.r, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=5, toPlot="bar")
+tmp$up[, 1] <- as.numeric(mtx.untransform(tmp$up[, 1, drop=F]))
+tmp$dn[, 1] <- as.numeric(mtx.untransform(tmp$dn[, 1, drop=F]))
+write.xlsx(left_join(tmp$up, gfAnnot, by=c("factor" = "factor", "cell" = "cell")), "results/Table_GR_Chemo-Methyl.xlsx", sheetName="TAC_UP_histones", append=T)
+```
+
+TCH DN
+---
+
+```{r fig.height=3}
+fname <- "/Users/mikhail/Documents/Work/VCU_work/Coleen/Breast_cancer/data/Chemo-Methyl/broadPeak/matrix_PVAL.txt"
+tmp <- showHeatmap(fname, colnum=3, factor="none", cell=cells.blood.r, isLog10=FALSE, adjust="fdr", pval=0.1, numtofilt=5, toPlot="bar")
+tmp$up[, 1] <- as.numeric(mtx.untransform(tmp$up[, 1, drop=F]))
+tmp$dn[, 1] <- as.numeric(mtx.untransform(tmp$dn[, 1, drop=F]))
+write.xlsx(left_join(tmp$up, gfAnnot, by=c("factor" = "factor", "cell" = "cell")), "results/Table_GR_Chemo-Methyl.xlsx", sheetName="TCH_DN_histones", append=T)
+```
+
+TCH DN
+---
+
+Nothing
+
+
+
+Cell type-specific enrichment analysis
+===
+
+Results are in files 'cellSpecific_ENCODE.xlsx' and 'cellSpecific_Roadmap.xlsx'
+
+```{r eval=FALSE}
+mtx <- load_gr_data(c("data/Chemo-Methyl/broadPeak/matrix_PVAL.txt", "data/Chemo-Methyl/chromStates18/matrix_PVAL.txt", "data/Chemo-Methyl/DNAse_hotspotbroadall/matrix_PVAL.txt"))
+mtx.cellspecific2(mtx, "results/cellSpecific_Roadmap.xlsx")
+mtx <- load_gr_data(c("data/Strict/broadPeak/matrix_PVAL.txt", "data/Strict/DNase_hotspotbroadall/matrix_PVAL.txt", "data/Strict/chromStates18/matrix_PVAL.txt"))
+mtx.cellspecific(mtx, "results/cellSpecific_Roadmap.xlsx")
+```
+
