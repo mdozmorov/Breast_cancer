@@ -41,12 +41,15 @@ load("data/Tim/Tel_DNAm_Samples.Rdata")
 annot <- Tel_DNAm_samples; rm(Tel_DNAm_samples)
 setdiff(rownames(mtx.cast), annot$iid) # Are all samples in telomere data annotated? Should be 0
 # Corrections
-annot$Chemo_Revised[ annot$iid == "2038" ] <- "AC" # or "TAC"
-annot$Chemo_Revised[ annot$iid == "2027" ] <- "TAC"
+annot$Chemo_Revised[ annot$iid == "2038" ] <- "AC" # or "TAC". 07-10-2015, 2038 in AC
+annot$Chemo_Revised[ annot$iid == "2027" ] <- "TCH" # NOT TAC. 07-10-2015, case 2027 in theTCH group
 annot$Chemo_Revised[ annot$iid == "2046" ] <- "CMF"
-
-
-names.both <- annot$iid[ annot$in.Telomere == "Yes" & annot$in.DNAm == "Yes" ] # Samples both with temolere and methylation data
+annot$Chemo_Revised[ annot$iid == "2040" ] <- "TAC" # 07-10-2015, 2040 in TAC
+# Count experiments
+xtabs(~ in.Telomere + in.DNAm, annot)
+xtabs(~ in.Telomere + in.DNAm + Chemo_Revised, annot[ annot$Chemo_Revised %in% c("TAC", "TC", "TCH"), ])
+# Samples both with temolere and methylation data
+names.both <- annot$iid[ annot$in.Telomere == "Yes" & annot$in.DNAm == "Yes" ]
 annot.telo <- annot[ match(rownames(mtx.cast), annot$iid), ] # Subset of annotation matched to telomere data
 print("Chemo type counts in telomere data")
 pander(as.data.frame(table(annot.telo$Chemo_Revised)))
