@@ -1,0 +1,113 @@
+---
+title: "Analysis of DMRs"
+output: html_document
+---
+```{r}
+source("/Users/mikhail/Documents/Work/VCU_work/Kazuaki/pdx-reanalysis/functions/gene_enrichment.r")
+library("ReactomePA")
+library("DOSE")
+library("xlsx")
+library("reshape2")
+```
+
+```{r}
+load("data/Tim/DMR_circos.Rdata") # Data are in temp.tac/tc/tch
+
+geneALL <- read.csv("data/Tim/DMRs/all.hgnc_symbol.bed", sep="\t", header=F) # All genes
+geneALL <- geneALL[, "V4", drop = F]
+geneALL <- unembed(data=geneALL, col="V4", sep=",") # Unembed multiple IDs
+geneALL <- unique(geneALL$V4) # Keep only unique
+```
+
+TAC DMRs
+===
+
+```{r}
+temp.tac$chr <- paste("chr", temp.tac$chr, sep = "")
+numdmr.tac <- data.frame( chrom = temp.tac$chr, num = temp.tac$num_cpg ) # Extract chromosomes and number of DMRs in them
+numdmr.tac$num[ numdmr.tac$num >= 10 ] <- 10 # If a DMR has >= 10 CpG sites, mark it as 10
+tabdmr.tac <- as.data.frame(xtabs(~ chrom + num, numdmr.tac)) # Cross-tabulate chromosome vs. number of DMRs
+tabdmr.tac <- dcast(tabdmr.tac, chrom ~ num, mean, value.var = "Freq") # And convert to "wide" format
+
+ind <- temp.tac$num_cpg >= 10 # Select DMRs with >= 10 CpG sites
+write.table(temp.tac[ ind, c("chr", "start", "stop", "num_cpg")], "data/Tim/DMRs/dmr.10.TAC.bed", sep="\t", row.names = FALSE, col.names = FALSE, quote = FALSE)
+```
+
+Total count : wc -l dmr.10.TAC.bed : 256 dmr.10.TAC.bed
+
+Are they overlap : bedtools sort -i dmr.10.TAC.bed | mergeBed -i - | wc -l : 256 : All unique
+
+DMRs per chromosome : bedtools sort -i dmr.10.TAC.bed | cut -f1 | uniq -c : 112 on chr6
+
+Consider 1K slope - how many merged: bedtools sort -i dmr.10.TAC.bed | bedtools slop -g hg19.genome -b 1000 -i - | mergeBed -i - | wc -l : 245 : Only 12 DMRs are in 1K proximity 
+
+bedtools sort -i dmr.10.TAC.bed | bedtools slop -g hg19.genome -b 1000 -i - | mergeBed -i - > dmr.10.TAC_1Kslop.bed 
+
+Genes that TAC overlap
+---
+
+intersectBed -a dmr.10.TAC_1Kslop.bed -b all.hgnc_symbol.bed -loj -wb | awk '{OFS="\t"} $7 != "." {print $7}' | sort | uniq > dmr.10.TAC_1Kslop_genes.txt : 276 
+
+```{r}
+dmr.10.TAC_1Kslop_genes <- data.frame(genes = readLines("data/Tim/DMRs/dmr.10.TAC_1Kslop_genes.txt"))
+dmr.10.TAC_1Kslop_genes <- unique(unembed(data=dmr.10.TAC_1Kslop_genes, col="genes", sep=",")$genes)
+geneList <- dmr.10.TAC_1Kslop_genes
+res <- Enrichment(geneList, all.universe = geneALL, id="symbol", use="GO", ont="MF")
+write.xlsx2(res, "results/DMR.10.TAC_Functional_Enrichment.xlsx", sheetName = "GO-MF", append = TRUE)
+res <- Enrichment(geneList, all.universe = geneALL, id="symbol", use="GO", ont="BP")
+write.xlsx2(res, "results/DMR.10.TAC_Functional_Enrichment.xlsx", sheetName = "GO-BP", append = TRUE)
+res <- Enrichment(geneList, all.universe = geneALL, id="symbol", use="GO", ont="CC")
+write.xlsx2(res, "results/DMR.10.TAC_Functional_Enrichment.xlsx", sheetName = "GO-CC", append = TRUE)
+res <- Enrichment(geneList, all.universe = geneALL, id="symbol", use="KEGG")
+write.xlsx2(res, "results/DMR.10.TAC_Functional_Enrichment.xlsx", sheetName = "KEGG", append = TRUE)
+res <- enrichPathway(gene = unlist(xx)[geneList], universe = unlist(xx)[geneALL], organism = "human", pAdjustMethod = "BH", pvalueCutoff = 0.01, qvalueCutoff = 0.05, readable = TRUE)
+write.xlsx2(summary(res), "results/DMR.10.TAC_Functional_Enrichment.xlsx", sheetName = "Reactome", append = TRUE)
+res <- enrichDO(gene = unlist(xx)[geneList], universe = unlist(xx)[geneALL], ont = "DO", pAdjustMethod = "BH", pvalueCutoff = 0.01, qvalueCutoff = 0.05, readable = TRUE)
+write.xlsx2(summary(res), "results/DMR.10.TAC_Functional_Enrichment.xlsx", sheetName = "DO", append = TRUE)
+```
+
+
+
+TC DMRs
+===
+
+```{r}
+temp.tc$chr <- paste("chr", temp.tc$chr, sep = "")
+numdmr.tc <- data.frame( chrom = temp.tc$chr, num = temp.tc$num_cpg ) # Extract chromosomes and number of DMRs in them
+numdmr.tc$num[ numdmr.tc$num >= 10 ] <- 10 # If a DMR has >= 10 CpG sites, mark it as 10
+tabdmr.tc <- as.data.frame(xtabs(~ chrom + num, numdmr.tc)) # Cross-tabulate chromosome vs. number of DMRs
+tabdmr.tc <- dcast(tabdmr.tc, chrom ~ num, mean, value.var = "Freq") # And convert to "wide" format
+
+ind <- temp.tc$num_cpg >= 10 # Select DMRs with >= 10 CpG sites
+write.table(temp.tc[ ind, c("chr", "start", "stop", "num_cpg")], "data/Tim/DMRs/dmr.10.TC.bed", sep="\t", row.names = FALSE, col.names = FALSE, quote = FALSE)
+```
+
+TCH DMRs
+===
+
+```{r}
+temp.tch$chr <- paste("chr", temp.tch$chr, sep = "")
+numdmr.tch <- data.frame( chrom = temp.tch$chr, num = temp.tch$num_cpg ) # Extract chromosomes and number of DMRs in them
+numdmr.tch$num[ numdmr.tch$num >= 10 ] <- 10 # If a DMR has >= 10 CpG sites, mark it as 10
+tabdmr.tch <- as.data.frame(xtabs(~ chrom + num, numdmr.tch)) # Cross-tabulate chromosome vs. number of DMRs
+tabdmr.tch <- dcast(tabdmr.tch, chrom ~ num, mean, value.var = "Freq") # And convert to "wide" format
+
+ind <- temp.tch$num_cpg >= 10 # Select DMRs with >= 10 CpG sites
+write.table(temp.tch[ ind, c("chr", "start", "stop", "num_cpg")], "data/Tim/DMRs/dmr.10.TCH.bed", sep="\t", row.names = FALSE, col.names = FALSE, quote = FALSE)
+```
+
+Overlap among DMRs
+===
+
+multiIntersectBed -i dmr.10.TAC.bed dmr.10.TC.bed  dmr.10.TCH.bed -header -names TAC TC TCH > dmr.10.overlap.txt
+
+sed '1d' dmr.10.overlap.txt  | cut -f5 | sort | uniq -c
+
+ 231 TAC
+ 107 TAC,TC
+ 154 TC
+ 151 TCH
+
+
+
+
