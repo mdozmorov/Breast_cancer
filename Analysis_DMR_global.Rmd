@@ -1,0 +1,127 @@
+---
+title: "Analysis of aDMRs differentially expressed irrespectively of treatment"
+author: "Mikhail G. Dozmorov"
+date: "August 17, 2015"
+output: html_document
+---
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+suppressMessages(source("../../../GenomeRunner/R.GenomeRunner/utils1.R"))
+# Set up the environment
+library(knitr) 
+opts_chunk$set(cache.path='cache/', fig.path='img/', cache=F, tidy=T, fig.keep='high', echo=F, dpi=100, warnings=F, message=F, comment=NA, warning=F) #out.width=700, 
+options(replace.assign=TRUE)#, width=120)
+library(pander)
+panderOptions('table.split.table', Inf)
+set.seed(1)
+library(xlsx)
+library("ReactomePA")
+library("DOSE")
+```
+
+08/07/2015 - the significant DMR results for all treatments and for all treatments combined. 
+```{r}
+load("/Users/mikhail/Documents/Work/VCU_work/Coleen/Breast_cancer/data/Tim/DMR_CpG.Rdata")
+# write.table(data.frame(paste("chr", temp.all$chr, sep=""), temp.all$start, temp.all$stop), "/Users/mikhail/Documents/Work/VCU_work/Coleen/Breast_cancer/data/Tim/DMR_CpG.bed", sep="\t", row.names=FALSE, col.names=FALSE, quote=F)
+```
+
+Examine length distribution.
+
+```{r}
+hist(temp.all$length, n=100)
+summary(temp.all$length)
+```
+
+Examine number of CpGs
+
+```{r}
+hist(temp.all$num_cpg, n=100)
+summary(temp.all$num_cpg)
+```
+
+Start annotations
+
+```{r}
+library(ChIPpeakAnno)
+group1.bed <- read.table("data/Tim/DMR_CpG.bed", sep="\t", stringsAsFactors = FALSE)
+group1.bed <- BED2RangedData(group1.bed) # Convert to RangedData
+dupeRows2 <- unlist(lapply(ranges(TSS.human.NCBI36), duplicated))
+```
+
+We pull transcript annotations from BiomaRt, and annotate our peaks in relation to their transcription start sites (TSSs). We also peek inside how the annotation looks like, and check what types of annotation data do we have.
+
+```{r}
+# library(biomaRt)
+# mart <- useMart("ENSEMBL_MART_ENSEMBL", dataset="hsapiens_gene_ensembl", host="feb2014.archive.ensembl.org",path="/biomart/martservice",archive=FALSE, verbose=TRUE) # Last mart containing HG19 genome annotation
+# myFullAnnotation = getAnnotation(mart, featureType=c("TSS","miRNA", "Exon", "5utr", "3utr", "ExonPlusUtr", "transcript")) # An example in relation to what we can get annotations
+# myFullAnnotation = getAnnotation(mart, featureType=c("TSS")) # Getting annotations is time consuming
+# myFullAnnotation = readRDS("data/myFullAnnotation_TSS.Rds")
+data(TSS.human.NCBI36)
+annotatedPeak = annotatePeakInBatch(group1.bed, AnnotationData=TSS.human.NCBI36, select = "first")
+pander(head(as.data.frame(annotatedPeak))) # An overview of how annotation results look like
+colnames(as.data.frame(annotatedPeak)) # Check column names in the annotation results
+pie(table(as.data.frame(annotatedPeak)$insideFeature))
+```
+
+So, we have "shortestDistance" column, and can subset the annotated peaks by it. For convenience, we use designated function for it, finding peaks within 5K around TSSs.
+
+```{r}
+closest <- as.data.frame(annotatedPeak)$shortestDistance < 5000
+table(closest)
+library(org.Hs.eg.db)
+over <- getEnrichedGO(annotatedPeak, orgAnn="org.Hs.eg.db", maxP=0.01, multiAdj=FALSE, minGOterm=10, multiAdjMethod="")
+head(unique(over$bp[, c(-10)]))
+write.xlsx(unique(over$bp[, c(-10)]), "enrichment-DMR_CpG-global.xlsx", sheetName = "BP-peaks", row.names=F, append = T)
+write.xlsx(unique(over$mf[, c(-10)]), "enrichment-DMR_CpG-global.xlsx", sheetName = "MF-peaks", row.names=F, append = T)
+write.xlsx(unique(over$cc[, c(-10)]), "enrichment-DMR_CpG-global.xlsx", sheetName = "CC-peaks", row.names=F, append = T)
+enrichedPATH <- getEnrichedPATH(annotatedPeak, orgAnn= 'org.Hs.eg.db', pathAnn='KEGG.db', feature_id_type="ensembl_gene_id", maxP=0.01, minPATHterm=10, multiAdjMethod="none")
+write.xlsx(unique(enrichedPATH[, c(-2)]), "enrichment-DMR_CpG-global.xlsx", sheetName = "KEGG-peaks", row.names=F, append = T)
+```
+
+Let's analyze corresponding Ensembl IDs
+
+```{r}
+source("/Users/mikhail/Documents/Work/GenomeRunner/MDmisc/R/gene_enrichment_hg19.R")
+entresIDs <- unique(as.data.frame(annotatedPeak[closest, ])$feature)
+library(biomaRt)
+mart <- useMart("ensembl", dataset="hsapiens_gene_ensembl")
+genes <- getBM(attributes = "entrezgene", filters="ensembl_gene_id", values=entresIDs, mart = mart, uniqueRows = T)
+```
+
+MF
+
+```{r}
+res <- Enrichment(as.character(unlist(genes)), id="entrezgene", use="GO", ont="MF")
+write.xlsx(res, "enrichment-DMR_CpG-global.xlsx", sheetName = "MF", row.names=F, append = T)
+```
+
+BP
+
+```{r}
+res <- Enrichment(as.character(unlist(genes)), id="entrezgene", use="GO", ont="BP")
+write.xlsx(res, "enrichment-DMR_CpG-global.xlsx", sheetName = "BP", row.names=F, append = T)
+```
+
+KEGG
+
+```{r}
+res <- Enrichment(as.character(unlist(genes)), id="entrezgene", use="KEGG")
+write.xlsx(res, "enrichment-DMR_CpG-global.xlsx", sheetName = "KEGG", row.names=F, append = T)
+```
+
+Reactome
+
+```{r}
+res <- enrichPathway(gene = as.character(unlist(genes)), organism = "human", pAdjustMethod = "BH", pvalueCutoff = 0.1, qvalueCutoff = 0.2, readable = TRUE)
+write.xlsx(summary(res), "enrichment-DMR_CpG-global.xlsx", sheetName = "Reactome",row.names=FALSE,  append = T)
+```
+
+DO
+
+```{r}
+res <- enrichDO(gene = as.character(unlist(genes)), ont = "DO", pAdjustMethod = "none", pvalueCutoff = 0.1, qvalueCutoff = 0.2, readable = TRUE)
+write.xlsx(summary(res), "enrichment-DMR_CpG-global.xlsx", sheetName = "DO",row.names=FALSE,  append = T)
+```
+
+
+
+
