@@ -38,13 +38,29 @@ hist(temp.all$num_cpg, n=100)
 summary(temp.all$num_cpg)
 ```
 
+DMR background position 08/25/2015
+---
+
+```{r}
+load("data/Tim/Mikhail_dmr_bkg.Rdata")
+nrow(dmr.bkg[ dmr.bkg$length > 0, ]) # How many DMRs
+sum(dmr.bkg$num_cpg) # How many CpGs total
+write.table(dmr.bkg[ dmr.bkg$length > 0, c("chr", "start", "stop")], "data/Tim/DMR_CpG_all.bed", sep="\t", quote=F, row.names=F, col.names = F)
+```
+
 Start annotations
+---
 
 ```{r}
 library(ChIPpeakAnno)
+# DMRs-global
 group1.bed <- read.table("data/Tim/DMR_CpG.bed", sep="\t", stringsAsFactors = FALSE)
 group1.bed <- BED2RangedData(group1.bed) # Convert to RangedData
-dupeRows2 <- unlist(lapply(ranges(TSS.human.NCBI36), duplicated))
+# All DMRs 
+group2.bed <- read.table("data/Tim/DMR_CpG_all.bed", sep="\t", stringsAsFactors = FALSE)
+group2.bed <- BED2RangedData(group2.bed) # Convert to RangedData
+# Potential annotation duplicates, not used
+# dupeRows2 <- unlist(lapply(ranges(TSS.human.NCBI36), duplicated))
 ```
 
 We pull transcript annotations from BiomaRt, and annotate our peaks in relation to their transcription start sites (TSSs). We also peek inside how the annotation looks like, and check what types of annotation data do we have.
@@ -65,8 +81,15 @@ pie(table(as.data.frame(annotatedPeak)$insideFeature))
 So, we have "shortestDistance" column, and can subset the annotated peaks by it. For convenience, we use designated function for it, finding peaks within 5K around TSSs.
 
 ```{r}
+# Which genes are within 5K region aroung TSSs
 closest <- as.data.frame(annotatedPeak)$shortestDistance < 5000
 table(closest)
+annotatedPeak.5K <- annotatedPeak[ closest, ]
+library(biomaRt)
+mart <- useMart("ensembl", dataset="hsapiens_gene_ensembl")
+genes <- getBM(attributes = c('ensembl_gene_id', 'hgnc_symbol', 'description'), filters = 'ensembl_gene_id', values = annotatedPeak.5K$feature, mart = mart, uniqueRows = TRUE)
+write.xlsx(left_join(data.frame(ensemblId=annotatedPeak.5K$feature, shortestDistance=annotatedPeak.5K$shortestDistance), as.data.frame(genes), by=c("ensemblId" = "ensembl_gene_id")), "results/DMR_CpG-global_genes5K.xlsx", sheetName = "genes")
+
 library(org.Hs.eg.db)
 over <- getEnrichedGO(annotatedPeak, orgAnn="org.Hs.eg.db", maxP=0.01, multiAdj=FALSE, minGOterm=10, multiAdjMethod="")
 head(unique(over$bp[, c(-10)]))
@@ -77,9 +100,9 @@ enrichedPATH <- getEnrichedPATH(annotatedPeak, orgAnn= 'org.Hs.eg.db', pathAnn='
 write.xlsx(unique(enrichedPATH[, c(-2)]), "enrichment-DMR_CpG-global.xlsx", sheetName = "KEGG-peaks", row.names=F, append = T)
 ```
 
-Let's analyze corresponding Ensembl IDs
+Let's analyze corresponding Ensembl IDs. Not used, it's not as good as native analysis
 
-```{r}
+```{r eval=FALSE}
 source("/Users/mikhail/Documents/Work/GenomeRunner/MDmisc/R/gene_enrichment_hg19.R")
 entresIDs <- unique(as.data.frame(annotatedPeak[closest, ])$feature)
 library(biomaRt)
@@ -89,39 +112,38 @@ genes <- getBM(attributes = "entrezgene", filters="ensembl_gene_id", values=entr
 
 MF
 
-```{r}
+```{r eval=FALSE}
 res <- Enrichment(as.character(unlist(genes)), id="entrezgene", use="GO", ont="MF")
 write.xlsx(res, "enrichment-DMR_CpG-global.xlsx", sheetName = "MF", row.names=F, append = T)
 ```
 
 BP
 
-```{r}
+```{r eval=FALSE}
 res <- Enrichment(as.character(unlist(genes)), id="entrezgene", use="GO", ont="BP")
 write.xlsx(res, "enrichment-DMR_CpG-global.xlsx", sheetName = "BP", row.names=F, append = T)
 ```
 
 KEGG
 
-```{r}
+```{r eval=FALSE}
 res <- Enrichment(as.character(unlist(genes)), id="entrezgene", use="KEGG")
 write.xlsx(res, "enrichment-DMR_CpG-global.xlsx", sheetName = "KEGG", row.names=F, append = T)
 ```
 
 Reactome
 
-```{r}
+```{r eval=FALSE}
 res <- enrichPathway(gene = as.character(unlist(genes)), organism = "human", pAdjustMethod = "BH", pvalueCutoff = 0.1, qvalueCutoff = 0.2, readable = TRUE)
 write.xlsx(summary(res), "enrichment-DMR_CpG-global.xlsx", sheetName = "Reactome",row.names=FALSE,  append = T)
 ```
 
 DO
 
-```{r}
+```{r eval=FALSE}
 res <- enrichDO(gene = as.character(unlist(genes)), ont = "DO", pAdjustMethod = "none", pvalueCutoff = 0.1, qvalueCutoff = 0.2, readable = TRUE)
 write.xlsx(summary(res), "enrichment-DMR_CpG-global.xlsx", sheetName = "DO",row.names=FALSE,  append = T)
 ```
-
 
 
 
