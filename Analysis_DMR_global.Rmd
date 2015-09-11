@@ -145,5 +145,42 @@ res <- enrichDO(gene = as.character(unlist(genes)), ont = "DO", pAdjustMethod = 
 write.xlsx(summary(res), "enrichment-DMR_CpG-global.xlsx", sheetName = "DO",row.names=FALSE,  append = T)
 ```
 
+09/10/2015 - Global DMRs separated into hyper- and hypomehtylated
+===
+
+`dmr_all.Rdata` - Attached is the significant (FDR < 1%) globally changed DMR findings with the directional annotations:
+
+- num_cpg is the number of CpGs in the DMR
+- pos_coef is the number of CpGs with a positive coefficient (hyper in visit 2)
+- neg_coef is the number of CpGs with a negative coefficient (hypo in visit 2)
+
+The breakdown of the 10,498 significant DMRs is summarized in the table below. I think interesting that for the 3rd category, where the DMR contains a mix of hyper and hypo CpGs, the majority of these DMRs have more hypo CpGs (2860 vs 1400).
+
+- DMR.type	N
+- CpG all Hyper	3067
+- CpG all Hypo	3171
+- CpG mixed	4260
+
+```{r}
+load("data/Tim/dmr_all.Rdata")
+# Check that the counts match
+nrow(temp[temp$pos_coef > 0 & temp$neg_coef == 0,]) # CpG all Hyper	3067
+nrow(temp[temp$pos_coef == 0 & temp$neg_coef > 0,]) # CpG all Hypo	3171
+nrow(temp[temp$pos_coef > 0 & temp$neg_coef > 0,]) # CpG mixed	4260
+```
+
+Save the data into BED files
+
+```{r}
+temp.all <- temp[temp$pos_coef > 0 & temp$neg_coef == 0,] # CpG all Hyper	3067
+write.table(data.frame(paste("chr", temp.all$chr, sep=""), temp.all$start, temp.all$stop), "/Users/mikhail/Documents/Work/VCU_work/Coleen/Breast_cancer/data/Tim/DMR_CpG_hyper.bed", sep="\t", row.names=FALSE, col.names=FALSE, quote=F)
+
+temp.all <- temp[temp$pos_coef == 0 & temp$neg_coef > 0,] # CpG all Hypo	3171
+write.table(data.frame(paste("chr", temp.all$chr, sep=""), temp.all$start, temp.all$stop), "/Users/mikhail/Documents/Work/VCU_work/Coleen/Breast_cancer/data/Tim/DMR_CpG_hypo.bed", sep="\t", row.names=FALSE, col.names=FALSE, quote=F)
+
+temp.all <- temp[temp$pos_coef > 0 & temp$neg_coef > 0,] # CpG mixed	4260
+write.table(data.frame(paste("chr", temp.all$chr, sep=""), temp.all$start, temp.all$stop), "/Users/mikhail/Documents/Work/VCU_work/Coleen/Breast_cancer/data/Tim/DMR_CpG_hyperhypo.bed", sep="\t", row.names=FALSE, col.names=FALSE, quote=F)
+```
+
 
 
