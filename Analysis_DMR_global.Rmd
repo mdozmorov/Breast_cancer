@@ -16,6 +16,7 @@ set.seed(1)
 library(xlsx)
 library("ReactomePA")
 library("DOSE")
+library(KEGG.db)
 ```
 
 08/07/2015 - the significant DMR results for all treatments and for all treatments combined. 
@@ -93,11 +94,11 @@ write.xlsx(left_join(data.frame(ensemblId=annotatedPeak.5K$feature, shortestDist
 library(org.Hs.eg.db)
 over <- getEnrichedGO(annotatedPeak, orgAnn="org.Hs.eg.db", maxP=0.01, multiAdj=FALSE, minGOterm=10, multiAdjMethod="")
 head(unique(over$bp[, c(-10)]))
-write.xlsx(unique(over$bp[, c(-10)]), "enrichment-DMR_CpG-global.xlsx", sheetName = "BP-peaks", row.names=F, append = T)
-write.xlsx(unique(over$mf[, c(-10)]), "enrichment-DMR_CpG-global.xlsx", sheetName = "MF-peaks", row.names=F, append = T)
-write.xlsx(unique(over$cc[, c(-10)]), "enrichment-DMR_CpG-global.xlsx", sheetName = "CC-peaks", row.names=F, append = T)
+write.xlsx(unique(over$bp[, c(-10)]), "/results/enrichment-DMR_CpG-global.xlsx", sheetName = "BP-peaks", row.names=F, append = T)
+write.xlsx(unique(over$mf[, c(-10)]), "/results/enrichment-DMR_CpG-global.xlsx", sheetName = "MF-peaks", row.names=F, append = T)
+write.xlsx(unique(over$cc[, c(-10)]), "/results/enrichment-DMR_CpG-global.xlsx", sheetName = "CC-peaks", row.names=F, append = T)
 enrichedPATH <- getEnrichedPATH(annotatedPeak, orgAnn= 'org.Hs.eg.db', pathAnn='KEGG.db', feature_id_type="ensembl_gene_id", maxP=0.01, minPATHterm=10, multiAdjMethod="none")
-write.xlsx(unique(enrichedPATH[, c(-2)]), "enrichment-DMR_CpG-global.xlsx", sheetName = "KEGG-peaks", row.names=F, append = T)
+write.xlsx(unique(enrichedPATH[, c(-2)]), "/results/enrichment-DMR_CpG-global.xlsx", sheetName = "KEGG-peaks", row.names=F, append = T)
 ```
 
 Let's analyze corresponding Ensembl IDs. Not used, it's not as good as native analysis
@@ -114,35 +115,35 @@ MF
 
 ```{r eval=FALSE}
 res <- Enrichment(as.character(unlist(genes)), id="entrezgene", use="GO", ont="MF")
-write.xlsx(res, "enrichment-DMR_CpG-global.xlsx", sheetName = "MF", row.names=F, append = T)
+write.xlsx(res, "/results/enrichment-DMR_CpG-global.xlsx", sheetName = "MF", row.names=F, append = T)
 ```
 
 BP
 
 ```{r eval=FALSE}
 res <- Enrichment(as.character(unlist(genes)), id="entrezgene", use="GO", ont="BP")
-write.xlsx(res, "enrichment-DMR_CpG-global.xlsx", sheetName = "BP", row.names=F, append = T)
+write.xlsx(res, "/results/enrichment-DMR_CpG-global.xlsx", sheetName = "BP", row.names=F, append = T)
 ```
 
 KEGG
 
 ```{r eval=FALSE}
 res <- Enrichment(as.character(unlist(genes)), id="entrezgene", use="KEGG")
-write.xlsx(res, "enrichment-DMR_CpG-global.xlsx", sheetName = "KEGG", row.names=F, append = T)
+write.xlsx(res, "/results/enrichment-DMR_CpG-global.xlsx", sheetName = "KEGG", row.names=F, append = T)
 ```
 
 Reactome
 
 ```{r eval=FALSE}
 res <- enrichPathway(gene = as.character(unlist(genes)), organism = "human", pAdjustMethod = "BH", pvalueCutoff = 0.1, qvalueCutoff = 0.2, readable = TRUE)
-write.xlsx(summary(res), "enrichment-DMR_CpG-global.xlsx", sheetName = "Reactome",row.names=FALSE,  append = T)
+write.xlsx(summary(res), "/results/enrichment-DMR_CpG-global.xlsx", sheetName = "Reactome",row.names=FALSE,  append = T)
 ```
 
 DO
 
 ```{r eval=FALSE}
 res <- enrichDO(gene = as.character(unlist(genes)), ont = "DO", pAdjustMethod = "none", pvalueCutoff = 0.1, qvalueCutoff = 0.2, readable = TRUE)
-write.xlsx(summary(res), "enrichment-DMR_CpG-global.xlsx", sheetName = "DO",row.names=FALSE,  append = T)
+write.xlsx(summary(res), "/results/enrichment-DMR_CpG-global.xlsx", sheetName = "DO",row.names=FALSE,  append = T)
 ```
 
 09/10/2015 - Global DMRs separated into hyper- and hypomehtylated
@@ -182,5 +183,52 @@ temp.all <- temp[temp$pos_coef > 0 & temp$neg_coef > 0,] # CpG mixed	4260
 write.table(data.frame(paste("chr", temp.all$chr, sep=""), temp.all$start, temp.all$stop), "/Users/mikhail/Documents/Work/VCU_work/Coleen/Breast_cancer/data/Tim/DMR_CpG_hyperhypo.bed", sep="\t", row.names=FALSE, col.names=FALSE, quote=F)
 ```
 
+Start the enrichment analysis 
 
+```{r}
+library(ChIPpeakAnno)
+data(TSS.human.NCBI36)
+library(org.Hs.eg.db)
+```
 
+DMRs-global-hyper
+
+```{r}
+group1.bed <- read.table("data/Tim/DMR_CpG_hyper.bed", sep="\t", stringsAsFactors = FALSE)
+group1.bed <- BED2RangedData(group1.bed) # Convert to RangedData
+annotatedPeak = annotatePeakInBatch(group1.bed, AnnotationData=TSS.human.NCBI36, select = "first")
+over <- getEnrichedGO(annotatedPeak, orgAnn="org.Hs.eg.db", maxP=0.01, multiAdj=FALSE, minGOterm=10, multiAdjMethod="")
+write.xlsx(unique(over$bp[, c(-10)]), "/results/enrichment-DMR_CpG-global.xlsx", sheetName = "BP-peaks-hyper", row.names=F, append = T)
+write.xlsx(unique(over$mf[, c(-10)]), "/results/enrichment-DMR_CpG-global.xlsx", sheetName = "MF-peaks-hyper", row.names=F, append = T)
+write.xlsx(unique(over$cc[, c(-10)]), "/results/enrichment-DMR_CpG-global.xlsx", sheetName = "CC-peaks-hyper", row.names=F, append = T)
+enrichedPATH <- getEnrichedPATH(annotatedPeak, orgAnn= 'org.Hs.eg.db', pathAnn='KEGG.db', feature_id_type="ensembl_gene_id", maxP=0.01, minPATHterm=10, multiAdjMethod="none")
+write.xlsx(unique(enrichedPATH[, c(-2)]), "/results/enrichment-DMR_CpG-global.xlsx", sheetName = "KEGG-peaks-hyper", row.names=F, append = T)
+```
+
+DMRs-global-hypo
+
+```{r}
+group1.bed <- read.table("data/Tim/DMR_CpG_hypo.bed", sep="\t", stringsAsFactors = FALSE)
+group1.bed <- BED2RangedData(group1.bed) # Convert to RangedData
+annotatedPeak = annotatePeakInBatch(group1.bed, AnnotationData=TSS.human.NCBI36, select = "first")
+over <- getEnrichedGO(annotatedPeak, orgAnn="org.Hs.eg.db", maxP=0.01, multiAdj=FALSE, minGOterm=10, multiAdjMethod="")
+write.xlsx(unique(over$bp[, c(-10)]), "/results/enrichment-DMR_CpG-global.xlsx", sheetName = "BP-peaks-hypo", row.names=F, append = T)
+write.xlsx(unique(over$mf[, c(-10)]), "/results/enrichment-DMR_CpG-global.xlsx", sheetName = "MF-peaks-hypo", row.names=F, append = T)
+write.xlsx(unique(over$cc[, c(-10)]), "/results/enrichment-DMR_CpG-global.xlsx", sheetName = "CC-peaks-hypo", row.names=F, append = T)
+enrichedPATH <- getEnrichedPATH(annotatedPeak, orgAnn= 'org.Hs.eg.db', pathAnn='KEGG.db', feature_id_type="ensembl_gene_id", maxP=0.01, minPATHterm=10, multiAdjMethod="none")
+write.xlsx(unique(enrichedPATH[, c(-2)]), "/results/enrichment-DMR_CpG-global.xlsx", sheetName = "KEGG-peaks-hypo", row.names=F, append = T)
+```
+
+DMRs-global-hyperhypo
+
+```{r}
+group1.bed <- read.table("data/Tim/DMR_CpG_hyperhypo.bed", sep="\t", stringsAsFactors = FALSE)
+group1.bed <- BED2RangedData(group1.bed) # Convert to RangedData
+annotatedPeak = annotatePeakInBatch(group1.bed, AnnotationData=TSS.human.NCBI36, select = "first")
+over <- getEnrichedGO(annotatedPeak, orgAnn="org.Hs.eg.db", maxP=0.01, multiAdj=FALSE, minGOterm=10, multiAdjMethod="")
+write.xlsx(unique(over$bp[, c(-10)]), "/results/enrichment-DMR_CpG-global.xlsx", sheetName = "BP-peaks-hyperhypo", row.names=F, append = T)
+write.xlsx(unique(over$mf[, c(-10)]), "/results/enrichment-DMR_CpG-global.xlsx", sheetName = "MF-peaks-hyperhypo", row.names=F, append = T)
+write.xlsx(unique(over$cc[, c(-10)]), "/results/enrichment-DMR_CpG-global.xlsx", sheetName = "CC-peaks-hyperhypo", row.names=F, append = T)
+enrichedPATH <- getEnrichedPATH(annotatedPeak, orgAnn= 'org.Hs.eg.db', pathAnn='KEGG.db', feature_id_type="ensembl_gene_id", maxP=0.01, minPATHterm=10, multiAdjMethod="none")
+write.xlsx(unique(enrichedPATH[, c(-2)]), "/results/enrichment-DMR_CpG-global.xlsx", sheetName = "KEGG-peaks-hyperhypo", row.names=F, append = T)
+```
